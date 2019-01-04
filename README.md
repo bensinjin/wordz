@@ -3,14 +3,16 @@
 0. Locate Powershell (better version of ms dos) on your computer, run as administrator
 1. Install chocolatey (Windows package manager) paste into Powershell: `Set-ExecutionPolicy Bypass -Scope Process -Force; iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))`
 2. Using chocolatey install yarn (Javascript package manager): `choco install yarn`
-3. Install git (version control): `choco install git`
-4. Set git credentials email: `git config --global user.email "you@you.com"`
-5. Set git credentials name: `git config --global user.email "your name"`
-6. Install vscode (text editor): https://go.microsoft.com/fwlink/?LinkID=534107
-7. Switch to your home directory: `cd $home`
-8. Clone our repo: `https://github.com/bensinjin/wordz.git`
-9. Switch to repo directory: `cd wordz`
-10. Install dependencies: `yarn`
+3. Using chocolatey Install git (version control): `choco install git`
+4. Using yarn install typescript: `yarn add global typescript`
+5. Set git credentials email: `git config --global user.email "you@you.com"`
+6. Set git credentials name: `git config --global user.email "your name"`
+7. Install vscode (text editor): https://go.microsoft.com/fwlink/?LinkID=534107
+8. Open vscode, install TypesScript TSLint Plugin through the "Extensions" menu
+8. Back in Powershell switch to your home directory: `cd $home`
+9. Clone our repo: `https://github.com/bensinjin/wordz.git`
+10. Switch to repo directory: `cd wordz`
+11. Install dependencies: `yarn`
 
 NOTE: If at any point a command doesn't work close and re open powershell.
 
