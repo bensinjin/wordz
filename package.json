@@ -11,11 +11,17 @@
     "test": "yarn run jest --maxWorkers=4"
   },
   "dependencies": {
+    "@types/react-router-native": "^4.2.3",
     "expo": "^31.0.2",
     "global": "^4.3.2",
     "jest-expo": "^31.0.0",
+    "native-base": "^2.10.0",
+    "ramda": "^0.26.1",
     "react": "16.5.0",
     "react-native": "https://github.com/expo/react-native/archive/sdk-31.0.0.tar.gz",
+    "react-router-native": "^4.3.0",
+    "redux": "^4.0.1",
+    "redux-saga": "^0.16.2",
     "typescript": "^3.2.2"
   },
   "devDependencies": {
