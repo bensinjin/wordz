@@ -11,6 +11,7 @@
     "test": "yarn run jest --maxWorkers=4"
   },
   "dependencies": {
+    "@types/ramda": "^0.25.46",
     "@types/react-router-native": "^4.2.3",
     "expo": "^31.0.2",
     "global": "^4.3.2",
