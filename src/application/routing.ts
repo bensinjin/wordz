@@ -1,15 +1,9 @@
 import { matchPath } from 'react-router';
-import { RouteComponentProps } from 'react-router-native';
 import { History } from 'history';
-
-interface MatchParameters {
-    readonly Id: string;
-}
-
-export type RouterProps = RouteComponentProps<MatchParameters>;
 
 export enum Routes {
     Main,
+    Puzzle,
 }
 
 export const routePath = (route: Routes): string => {
@@ -17,6 +11,8 @@ export const routePath = (route: Routes): string => {
         default:
         case Routes.Main:
             return '/';
+        case Routes.Puzzle:
+            return '/puzzle';
     }
 };
 
