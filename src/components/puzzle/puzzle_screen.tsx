@@ -13,9 +13,10 @@ interface PuzzleScreenProps {
 
 // Game Algorithm:
 // Populate wordsRemaining array
-// Populate wordsFound array with "empty" values
-// Render wordsFound array on screen
-// As letters are pressed append them to activeWord
+// Populate wordsFound array with empty values based on wordsRemaining
+// Render word placeholders based on words found, initially empty
+// Render activeWord, initially empty
+// Render puzzle, as buttons that append to activeWord when pressed
 // If "enter" pressed and activeWord in wordsRemaining:
 //      - clear activeWord
 //      - push activeWord into wordsFound array
@@ -41,6 +42,8 @@ const puzzle = {
 };
 
 const emptyLetterValue = '*';
+const letterPlaceHolderWidth = 45;
+const activeWordHeight = 50;
 
 interface State {
     activeWord: string;
@@ -55,9 +58,10 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         this.state = {
             activeWord: '',
             wordsRemaining: puzzle.permutations,
-            wordsFound: this.fillWordsFoundWithEmptyValue(),
+            wordsFound: this.fillWordsFoundWithEmptyValues(),
         };
         this.clearActiveWord = this.clearActiveWord.bind(this);
+        this.submitActiveWord = this.submitActiveWord.bind(this);
     }
 
     render(): JSX.Element {
@@ -80,12 +84,17 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                 <View>
                     {this.renderHUDButtons()}
                 </View>
+                <Text style={{ marginTop: 20, fontSize: 20 }}>Demo puzzle, try "doc", "sot", "doors" etc...</Text>
             </View>
         );
     }
 
-    fillWordsFoundWithEmptyValue(): Array<string> {
-        return R.map((permutation: string): string => emptyLetterValue.repeat(permutation.length), puzzle.permutations);
+    fillWordsFoundWithEmptyValues(): Array<string> {
+        return R.map((permutation: string): string => this.buildEmptyValueStringOfLength(permutation.length), puzzle.permutations);
+    }
+
+    buildEmptyValueStringOfLength(length: number): string {
+        return emptyLetterValue.repeat(length);
     }
 
     renderWordPlaceholders(): JSX.Element {
@@ -119,7 +128,8 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                     borderWidth: 1,
                     borderRadius: 5,
                     padding: 15,
-                    margin: 5,
+                    margin: 2,
+                    width: letterPlaceHolderWidth,
                 }}>
                 <Text style={letter === emptyLetterValue ? { color: 'white'} : { color: 'black' }}>
                     {letter}
@@ -130,7 +140,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
 
     renderActiveWord(): JSX.Element {
         return (
-            <View style={{ height: 50 }}>
+            <View style={{ height: activeWordHeight }}>
                 <Text style={{ fontSize: 30, textAlign: 'center' }}>{this.state.activeWord}</Text>
             </View>
         );
@@ -150,7 +160,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                             borderRadius: 5,
                         }}
                         key={index}
-                        onPress={(): void => this.appendToActiveWord(letter)}
+                        onPress={(): void => this.appendLetterToActiveWord(letter)}
                     >
                         <Text>{letter}</Text>
                     </TouchableOpacity>)
@@ -182,7 +192,16 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     submitActiveWord(): void {
-        // TODO
+        if (R.not(R.includes(this.state.activeWord, puzzle.permutations))) {
+            this.clearActiveWord();
+            return undefined;
+        }
+        if (R.includes(this.state.activeWord, this.state.wordsFound)) {
+            return undefined;
+        }
+        const targetEmptyValueString = this.buildEmptyValueStringOfLength(this.state.activeWord.length);
+        const targetIndex = R.indexOf(targetEmptyValueString, this.state.wordsFound);
+        this.pushActiveWordToWordsFound(targetIndex);
     }
 
     clearActiveWord(): void {
@@ -191,12 +210,24 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         });
     }
 
-    appendToActiveWord(letter: string): void {
+    appendLetterToActiveWord(letter: string): void {
         this.setState((state: State) => {
             if (state.activeWord && state.activeWord.length > 7) {
                 return state;
             }
             return { activeWord: state.activeWord + letter };
+        });
+    }
+
+    pushActiveWordToWordsFound(index: number): void {
+        this.setState((state: State) => {
+            return {
+                wordsFound: [
+                    ...R.slice(0, index, state.wordsFound),
+                    state.activeWord,
+                    ...R.slice(index + 1, Infinity, state.wordsFound),
+                ],
+            };
         });
     }
 }
