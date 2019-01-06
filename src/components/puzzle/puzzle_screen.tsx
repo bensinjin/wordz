@@ -12,17 +12,19 @@ interface PuzzleScreenProps {
 }
 
 // Game Algorithm:
-// Populate wordsRemaining array
-// Populate wordsFound array with empty values based on wordsRemaining
-// Render word placeholders based on words found, initially empty
+// Populate wordsRemaining array from puzzle permutations
+// Populate wordsFound array with "empty" words, one per word in wordsRemaining
+// Render word placeholders based on words found
 // Render activeWord, initially empty
-// Render puzzle, as buttons that append to activeWord when pressed
-// If "enter" pressed and activeWord in wordsRemaining:
-//      - clear activeWord
-//      - push activeWord into wordsFound array
+// Render puzzle letters as buttons that append to the activeWord string when pressed
+// If "enter" pressed:
+//      - check activeWord is a valid permutation
+//      - check activeWord has not already been found
+//      - add activeWord to wordsFound array
 //      - remove activeWord from wordsRemaining array
 //      - score
 //      - check if puzzle complete
+//      - end
 // If "enter" pressed and activeWord not in wordsRemaining:
 //      - clear activeWord
 // If "clear" pressed
@@ -89,15 +91,15 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
-    fillWordsFoundWithEmptyValues(): Array<string> {
-        return R.map((permutation: string): string => this.buildEmptyValueStringOfLength(permutation.length), puzzle.permutations);
+    private fillWordsFoundWithEmptyValues(): Array<string> {
+        return R.map((word: string): string => this.buildEmptyValueStringOfLength(word.length), puzzle.permutations);
     }
 
-    buildEmptyValueStringOfLength(length: number): string {
+    private buildEmptyValueStringOfLength(length: number): string {
         return emptyLetterValue.repeat(length);
     }
 
-    renderWordPlaceholders(): JSX.Element {
+    private renderWordPlaceholders(): JSX.Element {
         return (
             <View>
                 {this.state.wordsFound.map(
@@ -108,7 +110,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
-    renderWordPlaceholderRow(word: string): JSX.Element {
+    private renderWordPlaceholderRow(word: string): JSX.Element {
         const letters = word.split('');
         return (
             <View style={{ flexDirection: 'row' }}>
@@ -120,7 +122,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
-    renderWordPlaceholderRowLetter(letter: string): JSX.Element {
+    private renderWordPlaceholderRowLetter(letter: string): JSX.Element {
         return (
             <View
                 style={{
@@ -130,7 +132,8 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                     padding: 15,
                     margin: 2,
                     width: letterPlaceHolderWidth,
-                }}>
+                }}
+            >
                 <Text style={letter === emptyLetterValue ? { color: 'white'} : { color: 'black' }}>
                     {letter}
                 </Text>
@@ -138,7 +141,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
-    renderActiveWord(): JSX.Element {
+    private renderActiveWord(): JSX.Element {
         return (
             <View style={{ height: activeWordHeight }}>
                 <Text style={{ fontSize: 30, textAlign: 'center' }}>{this.state.activeWord}</Text>
@@ -146,7 +149,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
-    renderButtonsForLetters(): JSX.Element {
+    private renderButtonsForLetters(): JSX.Element {
         const letters = puzzle.puzzle.split('');
         return(
             <View style={{ flexDirection: 'row' }}>
@@ -169,7 +172,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
-    renderHUDButtons(): JSX.Element {
+    private renderHUDButtons(): JSX.Element {
         return (
             <View style={{ flexDirection: 'row' }}>
                 {this.renderSingleHudButton('Submit', this.submitActiveWord)}
@@ -179,7 +182,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
-    renderSingleHudButton(text: string, onPress: () => void): JSX.Element {
+    private renderSingleHudButton(text: string, onPress: () => void): JSX.Element {
         return (
             <Button
                 rounded
@@ -191,26 +194,37 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
-    submitActiveWord(): void {
-        if (R.not(R.includes(this.state.activeWord, puzzle.permutations))) {
+    private submitActiveWord(): void {
+        if (R.not(this.activeWordIsPuzzleWord())) {
             this.clearActiveWord();
             return undefined;
         }
-        if (R.includes(this.state.activeWord, this.state.wordsFound)) {
+        if (this.activeWordIsFoundWord()) {
+            this.clearActiveWord();
             return undefined;
         }
-        const targetEmptyValueString = this.buildEmptyValueStringOfLength(this.state.activeWord.length);
-        const targetIndex = R.indexOf(targetEmptyValueString, this.state.wordsFound);
-        this.pushActiveWordToWordsFound(targetIndex);
+        this.pushActiveWordToWordsFound();
+        this.removeActiveWordFromWordsRemaining();
+        if (this.puzzleIsComplete()) {
+            this.endPuzzle();
+        }
     }
 
-    clearActiveWord(): void {
+    private activeWordIsPuzzleWord(): boolean {
+        return R.includes(this.state.activeWord, puzzle.permutations);
+    }
+
+    private activeWordIsFoundWord(): boolean {
+        return R.includes(this.state.activeWord, this.state.wordsFound);
+    }
+
+    private clearActiveWord(): void {
         this.setState({
             activeWord: '',
         });
     }
 
-    appendLetterToActiveWord(letter: string): void {
+    private appendLetterToActiveWord(letter: string): void {
         this.setState((state: State) => {
             if (state.activeWord && state.activeWord.length > 7) {
                 return state;
@@ -219,15 +233,43 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         });
     }
 
-    pushActiveWordToWordsFound(index: number): void {
+    private pushActiveWordToWordsFound(): void {
         this.setState((state: State) => {
-            return {
-                wordsFound: [
-                    ...R.slice(0, index, state.wordsFound),
-                    state.activeWord,
-                    ...R.slice(index + 1, Infinity, state.wordsFound),
-                ],
-            };
+            const targetEmptyValueString = this.buildEmptyValueStringOfLength(state.activeWord.length);
+            const indexToPushTo = R.indexOf(targetEmptyValueString, state.wordsFound);
+            if (indexToPushTo > -1) {
+                return {
+                    wordsFound: [
+                        ...R.slice(0, indexToPushTo, state.wordsFound),
+                        state.activeWord,
+                        ...R.slice(indexToPushTo + 1, Infinity, state.wordsFound),
+                    ],
+                };
+            }
+            return state;
         });
+    }
+
+    private removeActiveWordFromWordsRemaining(): void {
+        this.setState((state: State) => {
+            if (R.includes(state.activeWord, state.wordsRemaining)) {
+                const indexToRemove = R.indexOf(state.activeWord, state.wordsRemaining);
+                if (indexToRemove > -1) {
+                    return {
+                        wordsRemaining: state.wordsRemaining.splice(indexToRemove, 1),
+                    };
+                }
+            }
+            return state;
+        });
+    }
+
+    private puzzleIsComplete(): boolean {
+        return R.isEmpty(this.state.wordsRemaining);
+    }
+
+    private endPuzzle(): void {
+        // TODO
+        // Score puzzle, generation next or something
     }
 }
