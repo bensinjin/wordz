@@ -2,52 +2,20 @@
 import React from 'react';
 import * as R from 'ramda';
 import { History } from 'history';
-import { Text, View, TouchableOpacity, Alert } from 'react-native';
+import { Text, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Button } from 'native-base';
 import { appStyles } from '../../application/styles';
 import { goToRouteWithoutParameter, Routes } from '../../application/routing';
+import { puzzles, Puzzle } from '../../puzzles/words_abridged_puzzles';
+
+const emptyLetterValue = '*';
+const letterPlaceHolderWidth = 40;
+const activeWordHeight = 50;
+const millisForPuzzle = 120 * 1000;
 
 interface PuzzleScreenProps {
     readonly history: History;
 }
-
-// Game Algorithm:
-// Populate wordsRemaining array from puzzle permutations
-// Populate wordsFound array with "empty" words, one per word in wordsRemaining
-// Render word placeholders based on words found
-// Render activeWord, initially empty
-// Render puzzle letters as buttons that append to the activeWord string when pressed
-// If "enter" pressed:
-//      - check activeWord is a valid permutation
-//      - check activeWord has not already been found
-//      - add activeWord to wordsFound array
-//      - remove activeWord from wordsRemaining array
-//      - score
-//      - check if puzzle complete
-//      - end
-// If "enter" pressed and activeWord not in wordsRemaining:
-//      - clear activeWord
-// If "clear" pressed
-//      - clear activeWord
-// If timer expired && puzzle.word in wordsRemaining : end level :  next level
-
-// A dummy puzzle for us to test with
-const puzzle = {
-    puzzle: 'ocdtors',
-    solution: 'doctors',
-    permutations: [
-        'doctors',
-        'doors',
-        'sort',
-        'doc',
-        'sot',
-    ],
-};
-
-const emptyLetterValue = '*';
-const letterPlaceHolderWidth = 45;
-const activeWordHeight = 50;
-const millisForPuzzle = 10 * 1000;
 
 interface State {
     activeWord: string;
@@ -56,17 +24,27 @@ interface State {
     secondsRemaining: number;
 }
 
+const pickPuzzle = (): Puzzle => {
+    // TODO fix this - this is just for testing, don't hardcode range.
+    const numberBetweenOneAndFortyNine = Math.floor(Math.random() * 39) + 1;
+    return puzzles[numberBetweenOneAndFortyNine];
+};
+
 export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
+    puzzle: Puzzle;
+    solution: string;
     timeoutId: number = 0;
     intervalId: number = 0;
 
     constructor(props: PuzzleScreenProps) {
         super(props);
+        this.puzzle = pickPuzzle();
+        this.solution = this.puzzle.permutations[0];
         this.state = {
             activeWord: '',
-            wordsRemaining: [...puzzle.permutations],
+            wordsRemaining: [...this.puzzle.permutations],
             wordsFound: this.fillWordsFoundWithEmptyValues(),
-            secondsRemaining: 10,
+            secondsRemaining: 120,
         };
         this.endPuzzleTimeElapsed = this.endPuzzleTimeElapsed.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
@@ -109,7 +87,6 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                 <View>
                     {this.renderHUDButtons()}
                 </View>
-                <Text style={{ marginTop: 20, fontSize: 20 }}>Demo puzzle, try "doc", "sot", "doors" etc...</Text>
             </View>
         );
     }
@@ -121,7 +98,8 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private fillWordsFoundWithEmptyValues(): Array<string> {
-        return R.map((word: string): string => this.buildEmptyValueStringOfLength(word.length), puzzle.permutations);
+        return R.map((word: string): string =>
+            this.buildEmptyValueStringOfLength(word.length), this.puzzle.permutations);
     }
 
     private buildEmptyValueStringOfLength(length: number): string {
@@ -136,11 +114,13 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
 
     private renderWordPlaceholders(): JSX.Element {
         return (
-            <View>
-                {this.state.wordsFound.map(
-                    (word: string, index: number) =>
-                        <View key={index}>{this.renderWordPlaceholderRow(word)}</View>,
-                )}
+            <View style={{ maxHeight: 300 }}>
+                <ScrollView>
+                    {this.state.wordsFound.map(
+                        (word: string, index: number) =>
+                            <View key={index}>{this.renderWordPlaceholderRow(word)}</View>,
+                    )}
+                </ScrollView>
             </View>
         );
     }
@@ -185,7 +165,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private renderButtonsForLetters(): JSX.Element {
-        const letters = puzzle.puzzle.split('');
+        const letters = this.puzzle.puzzle.split('');
         return(
             <View style={{ flexDirection: 'row' }}>
                 {letters.map((letter: string, index: number) =>
@@ -243,7 +223,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private activeWordIsPuzzleWord(): boolean {
-        return R.includes(this.state.activeWord, puzzle.permutations);
+        return R.includes(this.state.activeWord, this.puzzle.permutations);
     }
 
     private activeWordIsFoundWord(): boolean {
@@ -297,7 +277,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
 
     private showPuzzleSolution(): void {
         this.setState({
-            activeWord: puzzle.solution,
+            activeWord: this.solution,
         });
     }
 
@@ -307,7 +287,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
 
     private endPuzzleTimeElapsed(): void {
         this.removeSecondFromTimer();
-        if (R.includes(puzzle.solution, this.state.wordsFound)) {
+        if (R.includes(this.solution, this.state.wordsFound)) {
             return this.showPuzzleSuccess();
         }
         return this.showPuzzleFailure();
