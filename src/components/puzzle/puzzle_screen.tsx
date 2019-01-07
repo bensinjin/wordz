@@ -2,7 +2,7 @@
 import React from 'react';
 import * as R from 'ramda';
 import { History } from 'history';
-import { Text, View, TouchableOpacity } from 'react-native';
+import { Text, View, TouchableOpacity, Alert } from 'react-native';
 import { Button } from 'native-base';
 import { appStyles } from '../../application/styles';
 import { goToRouteWithoutParameter, Routes } from '../../application/routing';
@@ -34,39 +34,59 @@ interface PuzzleScreenProps {
 // A dummy puzzle for us to test with
 const puzzle = {
     puzzle: 'ocdtors',
+    solution: 'doctors',
     permutations: [
+        'doctors',
+        'doors',
+        'sort',
         'doc',
         'sot',
-        'sort',
-        'doors',
-        'doctors',
     ],
 };
 
 const emptyLetterValue = '*';
 const letterPlaceHolderWidth = 45;
 const activeWordHeight = 50;
+const millisForPuzzle = 10 * 1000;
 
 interface State {
     activeWord: string;
     wordsRemaining: Array<string>;
     wordsFound: Array<string>;
+    secondsRemaining: number;
 }
 
 export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
+    timeoutId: number = 0;
+    intervalId: number = 0;
 
     constructor(props: PuzzleScreenProps) {
         super(props);
         this.state = {
             activeWord: '',
-            wordsRemaining: puzzle.permutations,
+            wordsRemaining: [...puzzle.permutations],
             wordsFound: this.fillWordsFoundWithEmptyValues(),
+            secondsRemaining: 10,
         };
+        this.endPuzzleTimeElapsed = this.endPuzzleTimeElapsed.bind(this);
+        this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
         this.submitActiveWord = this.submitActiveWord.bind(this);
     }
 
+    componentDidMount(): void {
+        this.timeoutId = setTimeout(this.endPuzzleTimeElapsed, millisForPuzzle);
+        this.intervalId = setInterval(this.removeSecondFromTimer, 1000);
+    }
+
+    componentWillUnmount(): void {
+        this.clearTimers();
+    }
+
     render(): JSX.Element {
+        if (this.puzzleFinishedEarly()) {
+            this.showPuzzleSuccess();
+        }
         return (
             <View
                 style={{
@@ -76,6 +96,9 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                     alignItems: 'center',
                 }}
             >
+                <View>
+                    {this.renderTimer()}
+                </View>
                 <View style={{ marginBottom: 30 }}>
                     {this.renderWordPlaceholders()}
                 </View>
@@ -91,12 +114,24 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
+    private removeSecondFromTimer(): void {
+        this.setState((state: State) => {
+            return { secondsRemaining: state.secondsRemaining - 1 };
+        });
+    }
+
     private fillWordsFoundWithEmptyValues(): Array<string> {
         return R.map((word: string): string => this.buildEmptyValueStringOfLength(word.length), puzzle.permutations);
     }
 
     private buildEmptyValueStringOfLength(length: number): string {
         return emptyLetterValue.repeat(length);
+    }
+
+    private renderTimer(): JSX.Element {
+        return(
+            <Text style={{ fontSize: 30 }}>{this.state.secondsRemaining}</Text>
+        );
     }
 
     private renderWordPlaceholders(): JSX.Element {
@@ -156,16 +191,16 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                 {letters.map((letter: string, index: number) =>
                     <TouchableOpacity
                         style={{
-                            borderColor: 'grey',
-                            borderWidth: 1,
+                            borderWidth: 2,
                             padding: 15,
-                            marginHorizontal: 3,
-                            borderRadius: 5,
+                            marginHorizontal: 4,
+                            borderRadius: 10,
                         }}
+
                         key={index}
                         onPress={(): void => this.appendLetterToActiveWord(letter)}
                     >
-                        <Text>{letter}</Text>
+                        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{letter}</Text>
                     </TouchableOpacity>)
                 }
             </View>
@@ -205,9 +240,6 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         }
         this.pushActiveWordToWordsFound();
         this.removeActiveWordFromWordsRemaining();
-        if (this.puzzleIsComplete()) {
-            this.endPuzzle();
-        }
     }
 
     private activeWordIsPuzzleWord(): boolean {
@@ -253,23 +285,47 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     private removeActiveWordFromWordsRemaining(): void {
         this.setState((state: State) => {
             if (R.includes(state.activeWord, state.wordsRemaining)) {
-                const indexToRemove = R.indexOf(state.activeWord, state.wordsRemaining);
-                if (indexToRemove > -1) {
-                    return {
-                        wordsRemaining: state.wordsRemaining.splice(indexToRemove, 1),
-                    };
-                }
+                const isActiveWord = (word: string): boolean => word === state.activeWord;
+                return {
+                    wordsRemaining: R.reject(isActiveWord, state.wordsRemaining),
+                    activeWord: '',
+                };
             }
             return state;
         });
     }
 
-    private puzzleIsComplete(): boolean {
-        return R.isEmpty(this.state.wordsRemaining);
+    private showPuzzleSolution(): void {
+        this.setState({
+            activeWord: puzzle.solution,
+        });
     }
 
-    private endPuzzle(): void {
-        // TODO
-        // Score puzzle, generation next or something
+    private puzzleFinishedEarly(): boolean {
+        return R.isEmpty(this.state.wordsRemaining) && !! this.timeoutId;
+    }
+
+    private endPuzzleTimeElapsed(): void {
+        this.removeSecondFromTimer();
+        if (R.includes(puzzle.solution, this.state.wordsFound)) {
+            return this.showPuzzleSuccess();
+        }
+        return this.showPuzzleFailure();
+    }
+
+    private showPuzzleSuccess(): void {
+        this.clearTimers();
+        Alert.alert('You did it!');
+    }
+
+    private showPuzzleFailure(): void {
+        this.clearTimers();
+        this.showPuzzleSolution();
+        Alert.alert('You suck!');
+    }
+
+    private clearTimers(): void {
+        clearInterval(this.intervalId);
+        clearTimeout(this.timeoutId);
     }
 }
