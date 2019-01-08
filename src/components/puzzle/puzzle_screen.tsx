@@ -15,6 +15,7 @@ const activeWordHeight = 50;
 const millisForPuzzle = 60 * 1000;
 const whiteColor = 'white';
 const greyColor = 'darkgrey';
+const blackColor = 'black';
 const orangeColor = 'orange';
 const greenColor = 'green';
 const redColor = 'red';
@@ -188,7 +189,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                     width: letterPlaceHolderWidth,
                 }}
             >
-                <Text style={letter === emptyLetterValue ? { color: whiteColor } : { color: greyColor }}>
+                <Text style={letter === emptyLetterValue ? { color: whiteColor } : { color: blackColor }}>
                     {letter}
                 </Text>
             </View>
@@ -233,7 +234,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                         key={index}
                         onPress={(): void => this.appendLetterToActiveWord(letter)}
                     >
-                        <Text style={{ fontSize: 18 }}>{letter}</Text>
+                        <Text style={{ fontSize: 18, color: blackColor }}>{letter}</Text>
                     </TouchableOpacity>)
                 }
             </View>
