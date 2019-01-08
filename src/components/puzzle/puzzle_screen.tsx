@@ -8,10 +8,24 @@ import { appStyles } from '../../application/styles';
 import { goToRouteWithoutParameter, Routes } from '../../application/routing';
 import { puzzles, Puzzle } from '../../puzzles/words_abridged_puzzles';
 
+// TODO Move these to their appropriate places ...
 const emptyLetterValue = '*';
 const letterPlaceHolderWidth = 40;
 const activeWordHeight = 50;
-const millisForPuzzle = 120 * 1000;
+const millisForPuzzle = 60 * 1000;
+const whiteColor = 'white';
+const greyColor = 'darkgrey';
+const orangeColor = 'orange';
+const greenColor = 'green';
+const redColor = 'red';
+const borderWidthForBoxes = 1;
+const borderRadiusForBoxes = 10;
+
+enum ActiveWordState {
+    Valid,
+    Invalid,
+    Found,
+}
 
 interface PuzzleScreenProps {
     readonly history: History;
@@ -44,7 +58,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
             activeWord: '',
             wordsRemaining: [...this.puzzle.permutations],
             wordsFound: this.fillWordsFoundWithEmptyValues(),
-            secondsRemaining: 120,
+            secondsRemaining: 60,
         };
         this.endPuzzleTimeElapsed = this.endPuzzleTimeElapsed.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
@@ -69,14 +83,14 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
             <View
                 style={{
                     flex: 1,
-                    padding: 20,
-                    justifyContent: 'center',
+                    flexDirection: 'column',
                     alignItems: 'center',
+                    padding: 20,
                 }}
             >
                 <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
                     {/* TODO Lazy AF, fix this to not set hardcoded widths (flexbox), and reduce redudency*/}
-                    {this.renderNumberOfWordsFound()}
+                    {/* Do like hud buttons */}
                     {this.renderTimer()}
                 </View>
                 <View style={{ marginBottom: 30 }}>
@@ -86,8 +100,11 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                     {this.renderActiveWord()}
                     {this.renderButtonsForLetters()}
                 </View>
-                <View>
+                <View style={{ marginBottom: 30 }}>
                     {this.renderHUDButtons()}
+                </View>
+                <View style={{ alignSelf: 'stretch' }}>
+                    {this.renderProgress()}
                 </View>
             </View>
         );
@@ -108,12 +125,19 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         return emptyLetterValue.repeat(length);
     }
 
-    private renderNumberOfWordsFound(): JSX.Element {
+    private renderProgress(): JSX.Element {
         const total = this.puzzle.permutations.length;
         const notFound = this.state.wordsRemaining.length;
+        const percentage = Math.round((total - notFound) / total * 100);
         return (
-            <View style={{ width: 100 }}>
-                <Text style={{ fontSize: 30, textAlign: 'center' }}>{total - notFound} / {total}</Text>
+            <View style={{ borderRadius: 20, borderWidth: 2, borderColor: greenColor }}>
+                <View style={{
+                    borderRadius: 20,
+                    backgroundColor: greenColor,
+                    width: `${percentage}%`,
+                    height: 8,
+                }}
+                />
             </View>
         );
     }
@@ -128,7 +152,8 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
 
     private renderWordPlaceholders(): JSX.Element {
         return (
-            <View style={{ maxHeight: 300 }}>
+            // TODO this shouldn't be hardcoded, use screen height
+            <View style={{ maxHeight: 350 }}>
                 <ScrollView>
                     {this.state.wordsFound.map(
                         (word: string, index: number) =>
@@ -155,15 +180,15 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         return (
             <View
                 style={{
-                    borderColor: 'grey',
-                    borderWidth: 1,
-                    borderRadius: 5,
-                    padding: 15,
-                    margin: 2,
+                    color: greyColor,
+                    borderWidth: borderWidthForBoxes,
+                    borderRadius: borderRadiusForBoxes,
+                    padding: 10,
+                    margin: 3,
                     width: letterPlaceHolderWidth,
                 }}
             >
-                <Text style={letter === emptyLetterValue ? { color: 'white'} : { color: 'black' }}>
+                <Text style={letter === emptyLetterValue ? { color: whiteColor } : { color: greyColor }}>
                     {letter}
                 </Text>
             </View>
@@ -171,9 +196,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private renderActiveWord(): JSX.Element {
-        const wordFound = R.includes(this.state.activeWord, this.state.wordsFound);
-        const wordValid = R.includes(this.state.activeWord, this.puzzle.permutations);
-        const color = wordFound ? 'red' : wordValid ? 'green' : 'orange';
+        const color = this.getColorForActiveWordState(this.getActiveWordState());
         return (
             <View style={{ height: activeWordHeight }}>
                 <Text style={{ fontSize: 30, textAlign: 'center', color: color }}>
@@ -183,6 +206,16 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         );
     }
 
+    private getActiveWordState(): ActiveWordState {
+        const wordFound = R.includes(this.state.activeWord, this.state.wordsFound);
+        const wordValid = R.includes(this.state.activeWord, this.puzzle.permutations);
+        return wordFound ? ActiveWordState.Found : wordValid ? ActiveWordState.Valid : ActiveWordState.Invalid;
+    }
+
+    private getColorForActiveWordState(state: ActiveWordState): string {
+        return state === ActiveWordState.Found ? redColor : state === ActiveWordState.Valid ? greenColor : orangeColor;
+    }
+
     private renderButtonsForLetters(): JSX.Element {
         const letters = this.puzzle.puzzle.split('');
         return(
@@ -190,16 +223,17 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                 {letters.map((letter: string, index: number) =>
                     <TouchableOpacity
                         style={{
-                            borderWidth: 1,
+                            color: greyColor,
+                            borderWidth: borderWidthForBoxes,
                             padding: 15,
                             marginHorizontal: 4,
-                            borderRadius: 10,
+                            borderRadius: borderRadiusForBoxes,
                         }}
 
                         key={index}
                         onPress={(): void => this.appendLetterToActiveWord(letter)}
                     >
-                        <Text style={{ fontSize: 18, fontWeight: 'bold' }}>{letter}</Text>
+                        <Text style={{ fontSize: 18 }}>{letter}</Text>
                     </TouchableOpacity>)
                 }
             </View>
@@ -207,24 +241,27 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private renderHUDButtons(): JSX.Element {
+        const activeWordState = this.getActiveWordState();
+        const buttonColor = this.getColorForActiveWordState(activeWordState);
+        const buttonText = activeWordState === ActiveWordState.Valid ? 'Submit' : 'Clear';
         return (
             <View style={{ flexDirection: 'row' }}>
-                {this.renderSingleHudButton('Submit', this.submitActiveWord)}
-                {this.renderSingleHudButton('Clear', this.clearActiveWord)}
-                {this.renderSingleHudButton('Exit', goToRouteWithoutParameter(Routes.Main, this.props.history))}
+                <Button
+                    rounded
+                    style={[appStyles.button, { padding: 10, marginHorizontal: 5, backgroundColor: buttonColor }]}
+                    onPress={this.submitActiveWord}
+                >
+                    <Text style={appStyles.buttonText}>{buttonText}</Text>
+                </Button>
+                {/* TODO Remove  this... */}
+                <Button
+                    rounded
+                    style={[appStyles.button, { padding: 10, marginHorizontal: 5 }]}
+                    onPress={goToRouteWithoutParameter(Routes.Main, this.props.history)}
+                >
+                    <Text style={appStyles.buttonText}>Exit</Text>
+                </Button>
             </View>
-        );
-    }
-
-    private renderSingleHudButton(text: string, onPress: () => void): JSX.Element {
-        return (
-            <Button
-                rounded
-                style={[appStyles.button, { padding: 10, marginHorizontal: 5 }]}
-                onPress={onPress}
-            >
-                <Text style={appStyles.buttonText}>{text}</Text>
-            </Button>
         );
     }
 
@@ -305,7 +342,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private endPuzzleTimeElapsed(): void {
-        this.removeSecondFromTimer();
+        this.setState({ secondsRemaining: 0 });
         if (R.includes(this.solution, this.state.wordsFound)) {
             return this.showPuzzleSuccess();
         }

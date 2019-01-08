@@ -11,7 +11,7 @@ interface MainScreenProps {
 
 export const MainScreen = (props: MainScreenProps): JSX.Element => (
     <View padder style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Text>Welcome  (whout friends)</Text>
+        <Text>Welcome</Text>
         <Button
             rounded
             style={[appStyles.button, { alignSelf: 'center', padding: 10 }]}
