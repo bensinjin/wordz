@@ -74,7 +74,9 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                     alignItems: 'center',
                 }}
             >
-                <View>
+                <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+                    {/* TODO Lazy AF, fix this to not set hardcoded widths (flexbox), and reduce redudency*/}
+                    {this.renderNumberOfWordsFound()}
                     {this.renderTimer()}
                 </View>
                 <View style={{ marginBottom: 30 }}>
@@ -106,9 +108,21 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         return emptyLetterValue.repeat(length);
     }
 
+    private renderNumberOfWordsFound(): JSX.Element {
+        const total = this.puzzle.permutations.length;
+        const notFound = this.state.wordsRemaining.length;
+        return (
+            <View style={{ width: 100 }}>
+                <Text style={{ fontSize: 30, textAlign: 'center' }}>{total - notFound} / {total}</Text>
+            </View>
+        );
+    }
+
     private renderTimer(): JSX.Element {
-        return(
-            <Text style={{ fontSize: 30 }}>{this.state.secondsRemaining}</Text>
+        return (
+            <View style={{ width: 100 }}>
+                <Text style={{ fontSize: 30, textAlign: 'center' }}>{this.state.secondsRemaining}</Text>
+            </View>
         );
     }
 
@@ -157,9 +171,14 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private renderActiveWord(): JSX.Element {
+        const wordFound = R.includes(this.state.activeWord, this.state.wordsFound);
+        const wordValid = R.includes(this.state.activeWord, this.puzzle.permutations);
+        const color = wordFound ? 'red' : wordValid ? 'green' : 'orange';
         return (
             <View style={{ height: activeWordHeight }}>
-                <Text style={{ fontSize: 30, textAlign: 'center' }}>{this.state.activeWord}</Text>
+                <Text style={{ fontSize: 30, textAlign: 'center', color: color }}>
+                    {this.state.activeWord}
+                </Text>
             </View>
         );
     }
@@ -171,7 +190,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                 {letters.map((letter: string, index: number) =>
                     <TouchableOpacity
                         style={{
-                            borderWidth: 2,
+                            borderWidth: 1,
                             padding: 15,
                             marginHorizontal: 4,
                             borderRadius: 10,
