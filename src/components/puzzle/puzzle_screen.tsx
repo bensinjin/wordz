@@ -34,16 +34,23 @@ interface PuzzleScreenProps {
 
 interface State {
     activeWord: string;
+    activeLetterOrder: string;
     wordsRemaining: Array<string>;
     wordsFound: Array<string>;
     secondsRemaining: number;
 }
 
 const pickPuzzle = (): Puzzle => {
-    // TODO fix this - this is just for testing, don't hardcode range.
-    const numberBetweenOneAndFortyNine = Math.floor(Math.random() * 39) + 1;
-    return puzzles[numberBetweenOneAndFortyNine];
+    const numberOfPuzzles = R.keys(puzzles).length;
+    const numberBetweenOneAndOneFifty = Math.floor(Math.random() * numberOfPuzzles) + 1;
+    return puzzles[numberBetweenOneAndOneFifty];
 };
+
+const pickShuffledLetters = (puzzle: Puzzle): string => {
+    const numberOfPuzzles = puzzle.puzzles.length;
+    const numberBetweenZeroAndNine = Math.floor(Math.random() * numberOfPuzzles);
+    return puzzle.puzzles[numberBetweenZeroAndNine];
+}
 
 export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     puzzle: Puzzle;
@@ -57,6 +64,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         this.solution = this.puzzle.permutations[0];
         this.state = {
             activeWord: '',
+            activeLetterOrder: pickShuffledLetters(this.puzzle),
             wordsRemaining: [...this.puzzle.permutations],
             wordsFound: this.fillWordsFoundWithEmptyValues(),
             secondsRemaining: 60,
@@ -65,6 +73,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
         this.submitActiveWord = this.submitActiveWord.bind(this);
+        console.log('constructing....');
     }
 
     componentDidMount(): void {
@@ -218,10 +227,10 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private renderButtonsForLetters(): JSX.Element {
-        const letters = this.puzzle.puzzle.split('');
+        const activeLetterOrderArray = this.state.activeLetterOrder.split('');
         return(
             <View style={{ flexDirection: 'row' }}>
-                {letters.map((letter: string, index: number) =>
+                {activeLetterOrderArray.map((letter: string, index: number) =>
                     <TouchableOpacity
                         style={{
                             color: greyColor,
