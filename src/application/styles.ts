@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 
 // TODO Move colors etc here ...
-const colors = {
-    white: 'white',
-};
+// const colors = {
+//     white: 'white',
+// };
 
 export const appStyles = StyleSheet.create({
     button: {
