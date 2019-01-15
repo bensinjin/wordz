@@ -2,7 +2,7 @@
 import React from 'react';
 import * as R from 'ramda';
 import { History } from 'history';
-import { Text, View, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { Text, View, TouchableOpacity, Alert, Platform, Dimensions } from 'react-native';
 import { Button } from 'native-base';
 import { appStyles } from '../../application/styles';
 import { goToRouteWithoutParameter, Routes } from '../../application/routing';
@@ -10,17 +10,24 @@ import { puzzles, Puzzle } from '../../puzzles/words_abridged_puzzles';
 
 // TODO Move these to their appropriate places ...
 const emptyLetterValue = '*';
-const letterPlaceHolderWidth = 40;
-const activeWordHeight = 50;
+const activeWordHeight = 35;
+const wordsFoundHeight = Dimensions.get('screen').height / 1.4;
 const millisForPuzzle = 60 * 1000;
 const whiteColor = 'white';
-const greyColor = 'darkgrey';
-const blackColor = 'black';
-const orangeColor = 'orange';
-const greenColor = 'green';
-const redColor = 'red';
+const darkBlack = 'black';
+const blackColor = '#5C4D4A';
+const sevenColor = '#F28468';
+const sixColor = '#82F591';
+const fiveColor = '#F268D6';
+const fourColor = '#8468F2';
+const threeColor = '#68F2C9';
 const borderWidthForBoxes = 1;
 const borderRadiusForBoxes = 10;
+const fontFamily = Platform.OS === 'ios' ? 'Courier' : 'monospace';
+const wordsFoundFontSize = 20;
+const activeWordFontSize = 30;
+const activeLetterOrderFontSize = 25;
+const HUDTextSize = 25;
 
 enum ActiveWordState {
     Valid,
@@ -35,9 +42,11 @@ interface PuzzleScreenProps {
 interface State {
     activeWord: string;
     activeLetterOrder: string;
+    activeLetterOrderDisabledIndexes: ReadonlyArray<number>;
     wordsRemaining: Array<string>;
     wordsFound: Array<string>;
     secondsRemaining: number;
+    score: number;
 }
 
 const pickPuzzle = (): Puzzle => {
@@ -50,7 +59,7 @@ const pickShuffledLetters = (puzzle: Puzzle): string => {
     const numberOfPuzzles = puzzle.puzzles.length;
     const numberBetweenZeroAndNine = Math.floor(Math.random() * numberOfPuzzles);
     return puzzle.puzzles[numberBetweenZeroAndNine];
-}
+};
 
 export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     puzzle: Puzzle;
@@ -65,15 +74,16 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         this.state = {
             activeWord: '',
             activeLetterOrder: pickShuffledLetters(this.puzzle),
+            activeLetterOrderDisabledIndexes: [],
             wordsRemaining: [...this.puzzle.permutations],
             wordsFound: this.fillWordsFoundWithEmptyValues(),
             secondsRemaining: 60,
+            score: 0,
         };
         this.endPuzzleTimeElapsed = this.endPuzzleTimeElapsed.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
         this.submitActiveWord = this.submitActiveWord.bind(this);
-        console.log('constructing....');
     }
 
     componentDidMount(): void {
@@ -90,31 +100,22 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
             this.showPuzzleSuccess();
         }
         return (
-            <View
-                style={{
-                    flex: 1,
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    padding: 20,
-                }}
-            >
-                <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
-                    {/* TODO Lazy AF, fix this to not set hardcoded widths (flexbox), and reduce redudency*/}
-                    {/* Do like hud buttons */}
-                    {this.renderTimer()}
-                </View>
-                <View style={{ marginBottom: 30 }}>
-                    {this.renderWordPlaceholders()}
-                </View>
-                <View style={{ marginBottom: 30 }}>
+            <View style={{
+                flex: 1,
+                paddingTop: 25,
+                paddingBottom: 5,
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                backgroundColor: blackColor,
+            }}>
+                {/* TODO Move timer out of component so we don't rerender the entire component when it updates */}
+                {this.renderHUD()}
+                {this.renderWordsFound()}
+                {/* TODO Awkward, clean up */}
+                <View style={{ alignItems: 'center' }}>
                     {this.renderActiveWord()}
                     {this.renderButtonsForLetters()}
-                </View>
-                <View style={{ marginBottom: 30 }}>
                     {this.renderHUDButtons()}
-                </View>
-                <View style={{ alignSelf: 'stretch' }}>
-                    {this.renderProgress()}
                 </View>
             </View>
         );
@@ -135,81 +136,70 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         return emptyLetterValue.repeat(length);
     }
 
-    private renderProgress(): JSX.Element {
-        const total = this.puzzle.permutations.length;
-        const notFound = this.state.wordsRemaining.length;
-        const percentage = Math.round((total - notFound) / total * 100);
+    private renderHUD(): JSX.Element {
         return (
-            <View style={{ borderRadius: 20, borderWidth: 2, borderColor: greenColor }}>
-                <View style={{
-                    borderRadius: 20,
-                    backgroundColor: greenColor,
-                    width: `${percentage}%`,
-                    height: 8,
-                }}
-                />
+            <View style={{ alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-evenly' }}>
+                <Text style={{ fontSize: HUDTextSize, fontFamily }}>Time: {this.state.secondsRemaining}</Text>
+                <Text style={{ fontSize: HUDTextSize, fontFamily }}>Score: {this.state.score}</Text>
             </View>
         );
     }
 
-    private renderTimer(): JSX.Element {
+    private renderWordsFound(): JSX.Element {
+        const determineBackgroundColor = (word: string): string => {
+            if (word.length === 7) {
+                return sevenColor;
+            }
+            if (word.length ===  6) {
+                return sixColor;
+            }
+            if (word.length === 5) {
+                return fiveColor;
+            }
+            if (word.length === 4) {
+                return fourColor;
+            }
+            return threeColor;
+        };
+        const determineTextColor = (word: string): string => {
+            return R.includes(emptyLetterValue, word) ? determineBackgroundColor(word) : whiteColor;
+        };
         return (
-            <View style={{ width: 100 }}>
-                <Text style={{ fontSize: 30, textAlign: 'center' }}>{this.state.secondsRemaining}</Text>
-            </View>
-        );
-    }
-
-    private renderWordPlaceholders(): JSX.Element {
-        return (
-            // TODO this shouldn't be hardcoded, use screen height
-            <View style={{ maxHeight: 350 }}>
-                <ScrollView>
-                    {this.state.wordsFound.map(
-                        (word: string, index: number) =>
-                            <View key={index}>{this.renderWordPlaceholderRow(word)}</View>,
-                    )}
-                </ScrollView>
-            </View>
-        );
-    }
-
-    private renderWordPlaceholderRow(word: string): JSX.Element {
-        const letters = word.split('');
-        return (
-            <View style={{ flexDirection: 'row' }}>
-                {letters.map(
-                    (letter: string, index: number) =>
-                        <View key={index}>{this.renderWordPlaceholderRowLetter(letter)}</View>,
+            <View style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                maxHeight: wordsFoundHeight,
+                overflow: 'hidden',
+            }}>
+                {this.state.wordsFound.map(
+                    (word: string, index: number) =>
+                        <View
+                            key={index}
+                            style={{
+                                backgroundColor: determineBackgroundColor(word),
+                                borderRadius: 10,
+                                padding: 3,
+                                margin: 2,
+                            }}>
+                            <Text
+                                style={{
+                                    color: determineTextColor(word),
+                                    fontSize: wordsFoundFontSize,
+                                    fontFamily,
+                                }}>
+                                {word}
+                            </Text>
+                        </View>,
                 )}
             </View>
         );
     }
 
-    private renderWordPlaceholderRowLetter(letter: string): JSX.Element {
-        return (
-            <View
-                style={{
-                    color: greyColor,
-                    borderWidth: borderWidthForBoxes,
-                    borderRadius: borderRadiusForBoxes,
-                    padding: 10,
-                    margin: 3,
-                    width: letterPlaceHolderWidth,
-                }}
-            >
-                <Text style={letter === emptyLetterValue ? { color: whiteColor } : { color: blackColor }}>
-                    {letter}
-                </Text>
-            </View>
-        );
-    }
-
     private renderActiveWord(): JSX.Element {
-        const color = this.getColorForActiveWordState(this.getActiveWordState());
         return (
             <View style={{ height: activeWordHeight }}>
-                <Text style={{ fontSize: 30, textAlign: 'center', color: color }}>
+                <Text style={{ fontSize: activeWordFontSize, textAlign: 'center', color: darkBlack, fontFamily }}>
                     {this.state.activeWord}
                 </Text>
             </View>
@@ -222,48 +212,81 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         return wordFound ? ActiveWordState.Found : wordValid ? ActiveWordState.Valid : ActiveWordState.Invalid;
     }
 
-    private getColorForActiveWordState(state: ActiveWordState): string {
-        return state === ActiveWordState.Found ? redColor : state === ActiveWordState.Valid ? greenColor : orangeColor;
-    }
-
     private renderButtonsForLetters(): JSX.Element {
         const activeLetterOrderArray = this.state.activeLetterOrder.split('');
         return(
-            <View style={{ flexDirection: 'row' }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {activeLetterOrderArray.map((letter: string, index: number) =>
-                    <TouchableOpacity
-                        style={{
-                            color: greyColor,
-                            borderWidth: borderWidthForBoxes,
-                            padding: 15,
-                            marginHorizontal: 4,
-                            borderRadius: borderRadiusForBoxes,
-                        }}
-
-                        key={index}
-                        onPress={(): void => this.appendLetterToActiveWord(letter)}
-                    >
-                        <Text style={{ fontSize: 18, color: blackColor }}>{letter}</Text>
-                    </TouchableOpacity>)
-                }
+                    this.letterShouldBeDisabled(index) ?
+                        this.renderDisabledLetterButton(letter, index)
+                        :
+                        this.renderEnabledLetterButton(letter, index),
+                )}
             </View>
+        );
+    }
+
+    private renderDisabledLetterButton(letter: string, index: number): JSX.Element {
+        return (
+            <TouchableOpacity
+                key={index}
+                disabled={true}
+                style={{
+                    borderWidth: borderWidthForBoxes,
+                    borderColor: blackColor,
+                    backgroundColor: blackColor,
+                    padding: 12,
+                    marginHorizontal: 6,
+                    borderRadius: borderRadiusForBoxes,
+                }}
+            >
+                <Text style={{ fontSize: activeLetterOrderFontSize, color: blackColor, fontFamily }}>{letter}</Text>
+            </TouchableOpacity>
+        );
+    }
+
+    private renderEnabledLetterButton(letter: string, index: number): JSX.Element {
+        return (
+            <TouchableOpacity
+                key={index}
+                style={{
+                    borderWidth: borderWidthForBoxes,
+                    borderColor: darkBlack,
+                    padding: 12,
+                    marginHorizontal: 6,
+                    borderRadius: borderRadiusForBoxes,
+                }}
+                onPress={(): void => this.appendLetterToActiveWord(letter, index)}
+            >
+                <Text style={{ fontSize: activeLetterOrderFontSize, color: darkBlack, fontFamily }}>{letter}</Text>
+            </TouchableOpacity>
         );
     }
 
     private renderHUDButtons(): JSX.Element {
         const activeWordState = this.getActiveWordState();
-        const buttonColor = this.getColorForActiveWordState(activeWordState);
         const buttonText = activeWordState === ActiveWordState.Valid ? 'Submit' : 'Clear';
+        const shouldShowShuffle = R.isEmpty(this.state.activeWord);
         return (
-            <View style={{ flexDirection: 'row' }}>
+            <View style={{ flexDirection: 'row', marginTop: 5 }}>
                 <Button
                     rounded
-                    style={[appStyles.button, { padding: 10, marginHorizontal: 5, backgroundColor: buttonColor }]}
-                    onPress={this.submitActiveWord}
+                    style={[appStyles.button, { padding: 10, marginHorizontal: 5 }]}
+                    onPress={(): void => { this.submitActiveWord(); this.clearDisabledIndexes(); }}
                 >
                     <Text style={appStyles.buttonText}>{buttonText}</Text>
                 </Button>
-                {/* TODO Remove  this... */}
+                {shouldShowShuffle ?
+                    <Button
+                        rounded
+                        style={[appStyles.button, { padding: 10, marginHorizontal: 5 }]}
+                        onPress={(): void => { this.shuffleLetters(); this.clearDisabledIndexes(); }}
+                    >
+                        <Text style={appStyles.buttonText}>Shuffle</Text>
+                    </Button>
+                    :
+                    undefined
+                }
                 <Button
                     rounded
                     style={[appStyles.button, { padding: 10, marginHorizontal: 5 }]}
@@ -285,7 +308,15 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
             return undefined;
         }
         this.pushActiveWordToWordsFound();
+        this.scoreValidActiveWord();
         this.removeActiveWordFromWordsRemaining();
+        this.clearDisabledIndexes();
+    }
+
+    private shuffleLetters(): void {
+        this.setState({
+            activeLetterOrder: pickShuffledLetters(this.puzzle),
+        });
     }
 
     private activeWordIsPuzzleWord(): boolean {
@@ -302,12 +333,28 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         });
     }
 
-    private appendLetterToActiveWord(letter: string): void {
+    private clearDisabledIndexes(): void {
+        this.setState({
+            activeLetterOrderDisabledIndexes: [],
+        });
+    }
+
+    private letterShouldBeDisabled(index: number): boolean {
+        return R.includes(index, this.state.activeLetterOrderDisabledIndexes);
+    }
+
+    private appendLetterToActiveWord(letter: string, index: number): void {
         this.setState((state: State) => {
             if (state.activeWord && state.activeWord.length > 7) {
                 return state;
             }
-            return { activeWord: state.activeWord + letter };
+            return {
+                activeWord: state.activeWord + letter,
+                activeLetterOrderDisabledIndexes: [
+                    ...this.state.activeLetterOrderDisabledIndexes,
+                    index,
+                ],
+            };
         });
     }
 
@@ -325,6 +372,12 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                 };
             }
             return state;
+        });
+    }
+
+    private scoreValidActiveWord(): void {
+        this.setState({
+            score: this.state.score + this.state.activeWord.length,
         });
     }
 
@@ -348,7 +401,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     }
 
     private puzzleFinishedEarly(): boolean {
-        return R.isEmpty(this.state.wordsRemaining) && !! this.timeoutId;
+        return R.isEmpty(this.state.wordsRemaining) && !!this.timeoutId;
     }
 
     private endPuzzleTimeElapsed(): void {
