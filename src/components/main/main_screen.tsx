@@ -4,7 +4,7 @@ import { Text } from 'react-native';
 import { Button, View } from 'native-base';
 import { appStyles } from '../../application/styles';
 import { goToRouteWithParameter, Routes } from '../../application/routing';
-import { pickPuzzleId } from '../../application/puzzle_helpers';
+import { pickPuzzleId } from '../../application/helpers/puzzle_helpers';
 
 interface MainScreenProps {
     readonly history: History;

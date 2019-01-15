@@ -1,5 +1,11 @@
-import { matchPath } from 'react-router';
+import { matchPath, RouteComponentProps } from 'react-router';
 import { History } from 'history';
+
+interface MatchParameters {
+    readonly puzzleId: string;
+}
+
+export type RouterProps = RouteComponentProps<MatchParameters>;
 
 export enum Routes {
     Main,
