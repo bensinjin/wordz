@@ -6,7 +6,8 @@ import { Text, View, TouchableOpacity, Alert, Platform, Dimensions } from 'react
 import { Button } from 'native-base';
 import { appStyles } from '../../application/styles';
 import { goToRouteWithoutParameter, Routes } from '../../application/routing';
-import { puzzles, Puzzle } from '../../puzzles/words_abridged_puzzles';
+import { Puzzle } from '../../puzzles/words_abridged_puzzles';
+import { pickPuzzle, pickShuffledLetters } from '../../application/puzzle_helpers';
 
 // TODO Move these to their appropriate places ...
 const emptyLetterValue = '*';
@@ -37,6 +38,7 @@ enum ActiveWordState {
 
 interface PuzzleScreenProps {
     readonly history: History;
+    readonly match: object;
 }
 
 interface State {
@@ -49,18 +51,6 @@ interface State {
     score: number;
 }
 
-const pickPuzzle = (): Puzzle => {
-    const numberOfPuzzles = R.keys(puzzles).length;
-    const numberBetweenOneAndOneFifty = Math.floor(Math.random() * numberOfPuzzles) + 1;
-    return puzzles[numberBetweenOneAndOneFifty];
-};
-
-const pickShuffledLetters = (puzzle: Puzzle): string => {
-    const numberOfPuzzles = puzzle.puzzles.length;
-    const numberBetweenZeroAndNine = Math.floor(Math.random() * numberOfPuzzles);
-    return puzzle.puzzles[numberBetweenZeroAndNine];
-};
-
 export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
     puzzle: Puzzle;
     solution: string;
@@ -69,7 +59,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
 
     constructor(props: PuzzleScreenProps) {
         super(props);
-        this.puzzle = pickPuzzle();
+        this.puzzle = pickPuzzle(props.match.parameters.puzzleId);
         this.solution = this.puzzle.permutations[0];
         this.state = {
             activeWord: '',
@@ -162,7 +152,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
             return threeColor;
         };
         const determineTextColor = (word: string): string => {
-            return R.includes(emptyLetterValue, word) ? determineBackgroundColor(word) : whiteColor;
+            return R.includes(emptyLetterValue, word) ? determineBackgroundColor(word) : blackColor;
         };
         return (
             <View style={{
@@ -186,6 +176,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                                 style={{
                                     color: determineTextColor(word),
                                     fontSize: wordsFoundFontSize,
+                                    fontWeight: 'bold',
                                     fontFamily,
                                 }}>
                                 {word}

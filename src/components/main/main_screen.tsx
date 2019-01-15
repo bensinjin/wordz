@@ -3,7 +3,8 @@ import { History } from 'history';
 import { Text } from 'react-native';
 import { Button, View } from 'native-base';
 import { appStyles } from '../../application/styles';
-import { goToRouteWithoutParameter, Routes } from '../../application/routing';
+import { goToRouteWithParameter, Routes } from '../../application/routing';
+import { pickPuzzleId } from '../../application/puzzle_helpers';
 
 interface MainScreenProps {
     readonly history: History;
@@ -15,7 +16,7 @@ export const MainScreen = (props: MainScreenProps): JSX.Element => (
         <Button
             rounded
             style={[appStyles.button, { alignSelf: 'center', padding: 10 }]}
-            onPress={goToRouteWithoutParameter(Routes.Puzzle, props.history)}
+            onPress={goToRouteWithParameter(Routes.Puzzle, pickPuzzleId(), props.history)}
         >
             <Text style={appStyles.buttonText}>Let's go!</Text>
         </Button>
