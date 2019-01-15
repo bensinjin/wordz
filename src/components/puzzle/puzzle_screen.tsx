@@ -1,31 +1,21 @@
 // tslint:disable:no-expression-statement readonly-keyword readonly-array
 import React from 'react';
 import * as R from 'ramda';
-import { Text, View, TouchableOpacity, Platform, Dimensions } from 'react-native';
-import { Button } from 'native-base';
+import { Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import Modal from 'react-native-modal';
-import { appStyles } from '../../application/styles';
 import { goToRouteWithoutParameter, Routes, goToRouteWithParameter } from '../../application/routing';
 import { Puzzle } from '../../puzzles/words_abridged_puzzles';
 import { pickPuzzle, pickSolutionForPuzzle, pickShuffledLetters, pickPuzzleId } from '../../application/puzzle_helpers';
 import { RouterProps } from '../../application/routing';
+import { fontFamily, colors, appStyles  } from '../../application/styles';
 
 // TODO Move these to their appropriate places ...
 const emptyLetterValue = '*';
 const activeWordHeight = 35;
 const wordsFoundHeight = Dimensions.get('screen').height / 1.4;
 const millisForPuzzle = 60 * 1000;
-const whiteColor = 'white';
-const darkBlack = 'black';
-const blackColor = '#5C4D4A';
-const sevenColor = '#F28468';
-const sixColor = '#82F591';
-const fiveColor = '#F268D6';
-const fourColor = '#8468F2';
-const threeColor = '#68F2C9';
 const borderWidthForBoxes = 1;
 const borderRadiusForBoxes = 10;
-const fontFamily = Platform.OS === 'ios' ? 'Courier' : 'monospace';
 const wordsFoundFontSize = 20;
 const activeWordFontSize = 30;
 const activeLetterOrderFontSize = 25;
@@ -47,48 +37,40 @@ interface State {
     secondsRemaining: number;
     score: number;
     endOfLevelModalShowing: boolean;
+    puzzleId: string;
+    puzzle: Puzzle;
+    solution: string;
 }
 
 export class PuzzleScreen extends React.Component<RouterProps, State> {
-    puzzle: Puzzle;
-    solution: string;
     timeoutId: number = 0;
     intervalId: number = 0;
 
     constructor(props: RouterProps) {
         super(props);
-        this.puzzle = pickPuzzle(props.match.params.puzzleId);
-        this.solution = pickSolutionForPuzzle(this.puzzle);
-        this.state = {
-            activeWord: '',
-            activeLetterOrder: pickShuffledLetters(this.puzzle),
-            activeLetterOrderDisabledIndexes: [],
-            wordsRemaining: [...this.puzzle.permutations],
-            wordsFound: this.fillWordsFoundWithEmptyValues(),
-            solutionFound: false,
-            secondsRemaining: 60,
-            score: 0,
-            endOfLevelModalShowing: false,
-        };
-        this.endPuzzleTimeElapsed = this.endPuzzleTimeElapsed.bind(this);
+        this.setupFreshState();
+        this.endPuzzle = this.endPuzzle.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
         this.submitActiveWord = this.submitActiveWord.bind(this);
+        this.getEndOfLevelModalOnPress = this.getEndOfLevelModalOnPress.bind(this);
     }
 
     componentDidMount(): void {
-        this.timeoutId = setTimeout(this.endPuzzleTimeElapsed, millisForPuzzle);
-        this.intervalId = setInterval(this.removeSecondFromTimer, 1000);
+        this.setupNewTimers();
     }
 
     componentWillUnmount(): void {
         this.clearTimers();
     }
 
-    render(): JSX.Element {
-        if (this.puzzleFinishedEarly()) {
-            this.setPuzzleSuccess();
+    componentDidUpdate(): void {
+        if (this.state.solutionFound) {
+            this.endPuzzle();
         }
+    }
+
+    render(): JSX.Element {
         return (
             <View style={{
                 flex: 1,
@@ -96,7 +78,7 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
                 paddingBottom: 5,
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                backgroundColor: blackColor,
+                backgroundColor: colors.brownBlack,
             }}>
                 {/* TODO Move timer out of component so we don't rerender the entire component when it updates */}
                 {this.renderHUD()}
@@ -106,10 +88,35 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
                     {this.renderActiveWord()}
                     {this.renderButtonsForLetters()}
                     {this.renderHUDButtons()}
-                    {this.renderEndOfLevelModal()}
                 </View>
+                {this.renderEndOfLevelModal()}
             </View>
         );
+    }
+
+    private setupFreshState(): void {
+        const puzzleId = this.props.match.params.puzzleId;
+        const puzzle = pickPuzzle(puzzleId);
+        const solution = pickSolutionForPuzzle(puzzle);
+        this.state = {
+            activeWord: '',
+            activeLetterOrder: pickShuffledLetters(puzzle),
+            activeLetterOrderDisabledIndexes: [],
+            wordsRemaining: [...puzzle.permutations],
+            wordsFound: this.fillWordsFoundWithEmptyValues(puzzle.permutations),
+            solutionFound: false,
+            secondsRemaining: 60,
+            score: 0,
+            endOfLevelModalShowing: false,
+            puzzleId,
+            puzzle,
+            solution,
+        };
+    }
+
+    private setupNewTimers(): void {
+        this.timeoutId = setTimeout(this.endPuzzle, millisForPuzzle);
+        this.intervalId = setInterval(this.removeSecondFromTimer, 1000);
     }
 
     private removeSecondFromTimer(): void {
@@ -118,9 +125,9 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         });
     }
 
-    private fillWordsFoundWithEmptyValues(): Array<string> {
+    private fillWordsFoundWithEmptyValues(words: ReadonlyArray<string>): Array<string> {
         return R.map((word: string): string =>
-            this.buildEmptyValueStringOfLength(word.length), this.puzzle.permutations);
+            this.buildEmptyValueStringOfLength(word.length), words);
     }
 
     private buildEmptyValueStringOfLength(length: number): string {
@@ -132,6 +139,8 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
             <View style={{ alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-evenly' }}>
                 <Text style={{ fontSize: HUDTextSize, fontFamily }}>Time: {this.state.secondsRemaining}</Text>
                 <Text style={{ fontSize: HUDTextSize, fontFamily }}>Score: {this.state.score}</Text>
+                <Text style={{ fontSize: 9, fontFamily }}>sol: {this.state.solution}</Text>
+                <Text style={{ fontSize: 9, fontFamily }}>fnd: {this.state.solutionFound}</Text>
             </View>
         );
     }
@@ -139,21 +148,21 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
     private renderWordsFound(): JSX.Element {
         const determineBackgroundColor = (word: string): string => {
             if (word.length === 7) {
-                return sevenColor;
+                return colors.seven;
             }
             if (word.length ===  6) {
-                return sixColor;
+                return colors.six;
             }
             if (word.length === 5) {
-                return fiveColor;
+                return colors.five;
             }
             if (word.length === 4) {
-                return fourColor;
+                return colors.four;
             }
-            return threeColor;
+            return colors.three;
         };
         const determineTextColor = (word: string): string => {
-            return R.includes(emptyLetterValue, word) ? determineBackgroundColor(word) : blackColor;
+            return R.includes(emptyLetterValue, word) ? determineBackgroundColor(word) : colors.brownBlack;
         };
         return (
             <View style={{
@@ -191,7 +200,7 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
     private renderActiveWord(): JSX.Element {
         return (
             <View style={{ height: activeWordHeight }}>
-                <Text style={{ fontSize: activeWordFontSize, textAlign: 'center', color: darkBlack, fontFamily }}>
+                <Text style={{ fontSize: activeWordFontSize, textAlign: 'center', color: colors.black, fontFamily }}>
                     {this.state.activeWord}
                 </Text>
             </View>
@@ -200,7 +209,7 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
 
     private getActiveWordState(): ActiveWordState {
         const wordFound = R.includes(this.state.activeWord, this.state.wordsFound);
-        const wordValid = R.includes(this.state.activeWord, this.puzzle.permutations);
+        const wordValid = R.includes(this.state.activeWord, this.state.puzzle.permutations);
         return wordFound ? ActiveWordState.Found : wordValid ? ActiveWordState.Valid : ActiveWordState.Invalid;
     }
 
@@ -225,14 +234,14 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
                 disabled={true}
                 style={{
                     borderWidth: borderWidthForBoxes,
-                    borderColor: blackColor,
-                    backgroundColor: blackColor,
+                    borderColor: colors.brownBlack,
+                    backgroundColor: colors.brownBlack,
                     padding: 12,
                     marginHorizontal: 6,
                     borderRadius: borderRadiusForBoxes,
                 }}
             >
-                <Text style={{ fontSize: activeLetterOrderFontSize, color: blackColor, fontFamily }}>{letter}</Text>
+                <Text style={{ fontSize: activeLetterOrderFontSize, color: colors.brownBlack, fontFamily }}>{letter}</Text>
             </TouchableOpacity>
         );
     }
@@ -243,49 +252,52 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
                 key={index}
                 style={{
                     borderWidth: borderWidthForBoxes,
-                    borderColor: darkBlack,
+                    borderColor: colors.black,
                     padding: 12,
                     marginHorizontal: 6,
                     borderRadius: borderRadiusForBoxes,
                 }}
                 onPress={(): void => this.appendLetterToActiveWord(letter, index)}
             >
-                <Text style={{ fontSize: activeLetterOrderFontSize, color: darkBlack, fontFamily }}>{letter}</Text>
+                <Text style={{ fontSize: activeLetterOrderFontSize, color: colors.black, fontFamily }}>{letter}</Text>
             </TouchableOpacity>
         );
     }
 
     private renderHUDButtons(): JSX.Element {
+        // TODO Standardize this
         const activeWordState = this.getActiveWordState();
-        const buttonText = activeWordState === ActiveWordState.Valid ? 'Submit' : 'Clear';
+        const submitOrClearButtonText = activeWordState === ActiveWordState.Valid ? 'Submit' : 'Clear';
         const shouldShowShuffle = R.isEmpty(this.state.activeWord);
+        const exitOrSkipButtonText = this.state.solutionFound ? 'Go next' : 'Exit';
+        const exitOrSkipButtonOnPress = this.state.solutionFound ?
+            this.endPuzzle
+            :
+            goToRouteWithoutParameter(Routes.Main, this.props.history);
         return (
             <View style={{ flexDirection: 'row', marginTop: 5 }}>
-                <Button
-                    rounded
-                    style={[appStyles.button, { padding: 10, marginHorizontal: 5 }]}
+                <TouchableOpacity
+                    style={[appStyles.button, { marginHorizontal: 5 }]}
                     onPress={(): void => { this.submitActiveWord(); this.clearDisabledIndexes(); }}
                 >
-                    <Text style={appStyles.buttonText}>{buttonText}</Text>
-                </Button>
+                    <Text style={appStyles.buttonText}>{submitOrClearButtonText}</Text>
+                </TouchableOpacity>
                 {shouldShowShuffle ?
-                    <Button
-                        rounded
-                        style={[appStyles.button, { padding: 10, marginHorizontal: 5 }]}
+                    <TouchableOpacity
+                        style={[appStyles.button, { marginHorizontal: 5 }]}
                         onPress={(): void => { this.shuffleLetters(); this.clearDisabledIndexes(); }}
                     >
                         <Text style={appStyles.buttonText}>Shuffle</Text>
-                    </Button>
+                    </TouchableOpacity>
                     :
                     undefined
                 }
-                <Button
-                    rounded
-                    style={[appStyles.button, { padding: 10, marginHorizontal: 5 }]}
-                    onPress={goToRouteWithoutParameter(Routes.Main, this.props.history)}
+                <TouchableOpacity
+                    style={[appStyles.button, { marginHorizontal: 5 }]}
+                    onPress={exitOrSkipButtonOnPress}
                 >
-                    <Text style={appStyles.buttonText}>Exit</Text>
-                </Button>
+                    <Text style={appStyles.buttonText}>{exitOrSkipButtonText}</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -307,12 +319,12 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
 
     private shuffleLetters(): void {
         this.setState({
-            activeLetterOrder: pickShuffledLetters(this.puzzle),
+            activeLetterOrder: pickShuffledLetters(this.state.puzzle),
         });
     }
 
     private activeWordIsPuzzleWord(): boolean {
-        return R.includes(this.state.activeWord, this.puzzle.permutations);
+        return R.includes(this.state.activeWord, this.state.puzzle.permutations);
     }
 
     private activeWordIsFoundWord(): boolean {
@@ -361,15 +373,10 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
                         state.activeWord,
                         ...R.slice(indexToPushTo + 1, Infinity, state.wordsFound),
                     ],
+                    solutionFound: state.activeWord === state.solution,
                 };
             }
             return state;
-        });
-    }
-
-    private scoreValidActiveWord(): void {
-        this.setState({
-            score: this.state.score + this.state.activeWord.length,
         });
     }
 
@@ -386,17 +393,10 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         });
     }
 
-    private puzzleFinishedEarly(): boolean {
-        return R.isEmpty(this.state.wordsRemaining) && !!this.timeoutId;
-    }
-
-    private endPuzzleTimeElapsed(): void {
-        this.setState({ secondsRemaining: 0 });
-        this.clearTimers();
-        if (R.includes(this.solution, this.state.wordsFound)) {
-            this.setPuzzleSuccess();
-        }
-        this.showEndOfLevelModal();
+    private scoreValidActiveWord(): void {
+        this.setState({
+            score: this.state.score + this.state.activeWord.length,
+        });
     }
 
     private clearTimers(): void {
@@ -404,55 +404,76 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         clearTimeout(this.timeoutId);
     }
 
+    private clearSecondsRemaining(): void {
+        if (this.state.secondsRemaining !== 0) {
+            this.setState({
+                secondsRemaining: 0,
+            });
+        }
+    }
+
     private showEndOfLevelModal(): void {
-        this.setState({
-            endOfLevelModalShowing: true,
-        });
+        if (this.state.endOfLevelModalShowing === false) {
+            this.setState({
+                endOfLevelModalShowing: true,
+            });
+        }
     }
 
     private hideEndOfLevelModal(): void {
-        this.setState({
-            endOfLevelModalShowing: false,
-        });
+        if (this.state.endOfLevelModalShowing === true) {
+            this.setState({
+                endOfLevelModalShowing: false,
+            });
+        }
     }
 
-    private setPuzzleSuccess(): void {
-        this.setState({
-            solutionFound: true,
-        });
+    private foundAllWords(): boolean {
+        // TODO
     }
 
-    private getEndOfLevelModalOnPress(): () => void {
-        const nextPuzzleId = pickPuzzleId(this.props.match.params.puzzleId);
+    private endPuzzle(): void {
+        this.clearTimers();
+        this.clearSecondsRemaining();
+        this.showEndOfLevelModal();
+    }
+
+    private getEndOfLevelModalOnPress(): void {
+        const nextPuzzleId = pickPuzzleId(this.state.puzzleId);
         if (this.state.solutionFound) {
             // TODO persist score
         }
-        return (): void => {
-            this.hideEndOfLevelModal();
-            goToRouteWithParameter(Routes.Puzzle, nextPuzzleId, this.props.history);
-        };
+        // this.setupFreshState();
+        // this.setupNewTimers();
+        goToRouteWithParameter(Routes.Puzzle, nextPuzzleId, this.props.history)();
     }
 
     private renderEndOfLevelModal(): JSX.Element {
         const content = this.state.solutionFound ?
-            <Text>Congratulations! Solution found.</Text>
+            <Text style={appStyles.text}>Congratulations! Solution found.</Text>
             :
-            <Text>Solution: {this.solution}</Text>;
+            <Text style={appStyles.text}>You lose! Solution: {this.state.solution}</Text>;
         const buttonContent = this.state.solutionFound ?
-            <Text>Next level</Text>
+            <Text style={appStyles.buttonText}>Next level</Text>
             :
-            <Text>Retry</Text>;
+            <Text style={appStyles.buttonText}>Retry</Text>;
         return (
-            <View style={{ flex: 1 }}>
-                <Modal isVisible={this.state.endOfLevelModalShowing}>
-                    <View style={{ flex: 1 }}>
+            <Modal isVisible={this.state.endOfLevelModalShowing}>
+                <View style={{
+                    backgroundColor: colors.white,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 20,
+                }}>
+                    <View style={{ marginBottom: 20 }}>
                         {content}
-                        <TouchableOpacity onPress={this.getEndOfLevelModalOnPress}>
-                            {buttonContent}
-                        </TouchableOpacity>
                     </View>
-                </Modal>
-            </View>
+                    <TouchableOpacity onPress={this.getEndOfLevelModalOnPress} style={appStyles.button}>
+                        {buttonContent}
+                    </TouchableOpacity>
+                </View>
+            </Modal>
         );
     }
 }
