@@ -4,7 +4,7 @@ export interface Puzzle {
 }
 
 interface PuzzleEntries {
-    readonly [key: number]: Puzzle;
+    readonly [key: string]: Puzzle;
 }
 export const puzzles: PuzzleEntries = {
     1: {

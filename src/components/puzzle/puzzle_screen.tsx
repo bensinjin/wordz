@@ -1,13 +1,14 @@
 // tslint:disable:no-expression-statement readonly-keyword readonly-array
 import React from 'react';
 import * as R from 'ramda';
-import { History } from 'history';
-import { Text, View, TouchableOpacity, Alert, Platform, Dimensions } from 'react-native';
+import { Text, View, TouchableOpacity, Platform, Dimensions } from 'react-native';
 import { Button } from 'native-base';
+import Modal from 'react-native-modal';
 import { appStyles } from '../../application/styles';
-import { goToRouteWithoutParameter, Routes } from '../../application/routing';
+import { goToRouteWithoutParameter, Routes, goToRouteWithParameter } from '../../application/routing';
 import { Puzzle } from '../../puzzles/words_abridged_puzzles';
-import { pickPuzzle, pickShuffledLetters } from '../../application/puzzle_helpers';
+import { pickPuzzle, pickSolutionForPuzzle, pickShuffledLetters, pickPuzzleId } from '../../application/puzzle_helpers';
+import { RouterProps } from '../../application/routing';
 
 // TODO Move these to their appropriate places ...
 const emptyLetterValue = '*';
@@ -36,39 +37,38 @@ enum ActiveWordState {
     Found,
 }
 
-interface PuzzleScreenProps {
-    readonly history: History;
-    readonly match: object;
-}
-
 interface State {
     activeWord: string;
     activeLetterOrder: string;
     activeLetterOrderDisabledIndexes: ReadonlyArray<number>;
     wordsRemaining: Array<string>;
     wordsFound: Array<string>;
+    solutionFound: boolean;
     secondsRemaining: number;
     score: number;
+    endOfLevelModalShowing: boolean;
 }
 
-export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
+export class PuzzleScreen extends React.Component<RouterProps, State> {
     puzzle: Puzzle;
     solution: string;
     timeoutId: number = 0;
     intervalId: number = 0;
 
-    constructor(props: PuzzleScreenProps) {
+    constructor(props: RouterProps) {
         super(props);
-        this.puzzle = pickPuzzle(props.match.parameters.puzzleId);
-        this.solution = this.puzzle.permutations[0];
+        this.puzzle = pickPuzzle(props.match.params.puzzleId);
+        this.solution = pickSolutionForPuzzle(this.puzzle);
         this.state = {
             activeWord: '',
             activeLetterOrder: pickShuffledLetters(this.puzzle),
             activeLetterOrderDisabledIndexes: [],
             wordsRemaining: [...this.puzzle.permutations],
             wordsFound: this.fillWordsFoundWithEmptyValues(),
+            solutionFound: false,
             secondsRemaining: 60,
             score: 0,
+            endOfLevelModalShowing: false,
         };
         this.endPuzzleTimeElapsed = this.endPuzzleTimeElapsed.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
@@ -87,7 +87,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
 
     render(): JSX.Element {
         if (this.puzzleFinishedEarly()) {
-            this.showPuzzleSuccess();
+            this.setPuzzleSuccess();
         }
         return (
             <View style={{
@@ -106,6 +106,7 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
                     {this.renderActiveWord()}
                     {this.renderButtonsForLetters()}
                     {this.renderHUDButtons()}
+                    {this.renderEndOfLevelModal()}
                 </View>
             </View>
         );
@@ -385,37 +386,73 @@ export class PuzzleScreen extends React.Component<PuzzleScreenProps, State> {
         });
     }
 
-    private showPuzzleSolution(): void {
-        this.setState({
-            activeWord: this.solution,
-        });
-    }
-
     private puzzleFinishedEarly(): boolean {
         return R.isEmpty(this.state.wordsRemaining) && !!this.timeoutId;
     }
 
     private endPuzzleTimeElapsed(): void {
         this.setState({ secondsRemaining: 0 });
+        this.clearTimers();
         if (R.includes(this.solution, this.state.wordsFound)) {
-            return this.showPuzzleSuccess();
+            this.setPuzzleSuccess();
         }
-        return this.showPuzzleFailure();
-    }
-
-    private showPuzzleSuccess(): void {
-        this.clearTimers();
-        Alert.alert('You did it!');
-    }
-
-    private showPuzzleFailure(): void {
-        this.clearTimers();
-        this.showPuzzleSolution();
-        Alert.alert('You suck!');
+        this.showEndOfLevelModal();
     }
 
     private clearTimers(): void {
         clearInterval(this.intervalId);
         clearTimeout(this.timeoutId);
+    }
+
+    private showEndOfLevelModal(): void {
+        this.setState({
+            endOfLevelModalShowing: true,
+        });
+    }
+
+    private hideEndOfLevelModal(): void {
+        this.setState({
+            endOfLevelModalShowing: false,
+        });
+    }
+
+    private setPuzzleSuccess(): void {
+        this.setState({
+            solutionFound: true,
+        });
+    }
+
+    private getEndOfLevelModalOnPress(): () => void {
+        const nextPuzzleId = pickPuzzleId(this.props.match.params.puzzleId);
+        if (this.state.solutionFound) {
+            // TODO persist score
+        }
+        return (): void => {
+            this.hideEndOfLevelModal();
+            goToRouteWithParameter(Routes.Puzzle, nextPuzzleId, this.props.history);
+        };
+    }
+
+    private renderEndOfLevelModal(): JSX.Element {
+        const content = this.state.solutionFound ?
+            <Text>Congratulations! Solution found.</Text>
+            :
+            <Text>Solution: {this.solution}</Text>;
+        const buttonContent = this.state.solutionFound ?
+            <Text>Next level</Text>
+            :
+            <Text>Retry</Text>;
+        return (
+            <View style={{ flex: 1 }}>
+                <Modal isVisible={this.state.endOfLevelModalShowing}>
+                    <View style={{ flex: 1 }}>
+                        {content}
+                        <TouchableOpacity onPress={this.getEndOfLevelModalOnPress}>
+                            {buttonContent}
+                        </TouchableOpacity>
+                    </View>
+                </Modal>
+            </View>
+        );
     }
 }
