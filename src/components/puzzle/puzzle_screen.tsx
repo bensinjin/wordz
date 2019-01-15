@@ -48,7 +48,7 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
 
     constructor(props: RouterProps) {
         super(props);
-        this.setupFreshState();
+        this.state = this.getFreshState();
         this.endPuzzle = this.endPuzzle.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
@@ -70,16 +70,25 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         }
     }
 
+    componentWillReceiveProps(newProps: RouterProps): void {
+        if (this.state.puzzleId !== newProps.match.params.puzzleId) {
+            this.setState(this.getFreshState());
+            this.setupNewTimers();
+        }
+    }
+
     render(): JSX.Element {
         return (
-            <View style={{
-                flex: 1,
-                paddingTop: 25,
-                paddingBottom: 5,
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                backgroundColor: colors.brownBlack,
-            }}>
+            <View
+                style={{
+                    flex: 1,
+                    paddingTop: 25,
+                    paddingBottom: 5,
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    backgroundColor: colors.brownBlack,
+                }}
+            >
                 {/* TODO Move timer out of component so we don't rerender the entire component when it updates */}
                 {this.renderHUD()}
                 {this.renderWordsFound()}
@@ -94,11 +103,11 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         );
     }
 
-    private setupFreshState(): void {
+    private getFreshState(): State {
         const puzzleId = this.props.match.params.puzzleId;
         const puzzle = pickPuzzle(puzzleId);
         const solution = pickSolutionForPuzzle(puzzle);
-        this.state = {
+        return {
             activeWord: '',
             activeLetterOrder: pickShuffledLetters(puzzle),
             activeLetterOrderDisabledIndexes: [],
@@ -420,16 +429,8 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         }
     }
 
-    private hideEndOfLevelModal(): void {
-        if (this.state.endOfLevelModalShowing === true) {
-            this.setState({
-                endOfLevelModalShowing: false,
-            });
-        }
-    }
-
     private foundAllWords(): boolean {
-        // TODO
+        return R.isEmpty(this.state.wordsRemaining);
     }
 
     private endPuzzle(): void {
@@ -439,13 +440,12 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
     }
 
     private getEndOfLevelModalOnPress(): void {
-        const nextPuzzleId = pickPuzzleId(this.state.puzzleId);
         if (this.state.solutionFound) {
             // TODO persist score
         }
-        // this.setupFreshState();
-        // this.setupNewTimers();
+        const nextPuzzleId = pickPuzzleId(this.state.puzzleId);
         goToRouteWithParameter(Routes.Puzzle, nextPuzzleId, this.props.history)();
+        // goToRouteWithoutParameter(Routes.Main, this.props.history)();
     }
 
     private renderEndOfLevelModal(): JSX.Element {
