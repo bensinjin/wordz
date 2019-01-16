@@ -5,7 +5,8 @@ import { Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import Modal from 'react-native-modal';
 import { goToRouteWithoutParameter, Routes, goToRouteWithParameter } from '../../application/routing';
 import { Puzzle } from '../../puzzles/words_abridged_puzzles';
-import { pickPuzzle, pickSolutionForPuzzle, pickShuffledLetters, pickPuzzleId, buildEmptyValuesArray } from '../../application/puzzle_helpers';
+import { pickPuzzle, pickSolutionForPuzzle, pickShuffledLetters,
+         pickPuzzleId, buildEmptyValuesArray, buildEmptyValueStringOfLength } from '../../application/puzzle_helpers';
 import { RouterProps } from '../../application/routing';
 import { fontFamily, colors, appStyles  } from '../../application/styles';
 
@@ -366,7 +367,7 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
 
     private pushActiveWordToWordsFound(): void {
         this.setState((state: State) => {
-            const targetEmptyValueString = this.buildEmptyValueStringOfLength(state.activeWord.length);
+            const targetEmptyValueString = buildEmptyValueStringOfLength(state.activeWord.length);
             const indexToPushTo = R.indexOf(targetEmptyValueString, state.wordsFound);
             if (indexToPushTo > -1) {
                 return {

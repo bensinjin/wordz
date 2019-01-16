@@ -1,6 +1,8 @@
 import * as R from 'ramda';
 import { puzzles, Puzzle } from '../puzzles/words_abridged_puzzles';
 
+const emptyValueCharacter = '*';
+
 export const pickPuzzleId = (idToExclude?: string): string => {
     const numberOfPuzzles = R.keys(puzzles).length;
     const id = (Math.floor(Math.random() * numberOfPuzzles) + 1).toString();
@@ -26,8 +28,9 @@ export const pickSolutionForPuzzle = (puzzle: Puzzle): string => (
 
 // tslint:disable-next-line:readonly-array
 export const buildEmptyValuesArray = (words: ReadonlyArray<string>): Array<string> => {
-    const buildEmptyValueStringOfLength = (length: number): string => {
-        return '*'.repeat(length);
-    };
     return R.map((word: string): string => buildEmptyValueStringOfLength(word.length), words);
 };
+
+export const buildEmptyValueStringOfLength = (length: number): string => (
+    emptyValueCharacter.repeat(length)
+);
