@@ -5,7 +5,7 @@ import { Text, View, TouchableOpacity, Dimensions } from 'react-native';
 import Modal from 'react-native-modal';
 import { goToRouteWithoutParameter, Routes, goToRouteWithParameter } from '../../application/routing';
 import { Puzzle } from '../../puzzles/words_abridged_puzzles';
-import { pickPuzzle, pickSolutionForPuzzle, pickShuffledLetters, pickPuzzleId } from '../../application/puzzle_helpers';
+import { pickPuzzle, pickSolutionForPuzzle, pickShuffledLetters, pickPuzzleId, buildEmptyValuesArray } from '../../application/puzzle_helpers';
 import { RouterProps } from '../../application/routing';
 import { fontFamily, colors, appStyles  } from '../../application/styles';
 
@@ -13,7 +13,6 @@ import { fontFamily, colors, appStyles  } from '../../application/styles';
 const emptyLetterValue = '*';
 const activeWordHeight = 35;
 const wordsFoundHeight = Dimensions.get('screen').height / 1.4;
-const millisForPuzzle = 60 * 1000;
 const borderWidthForBoxes = 1;
 const borderRadiusForBoxes = 10;
 const wordsFoundFontSize = 20;
@@ -28,6 +27,8 @@ enum ActiveWordState {
 }
 
 interface State {
+    timeoutId: number;
+    intervalId: number;
     activeWord: string;
     activeLetterOrder: string;
     activeLetterOrderDisabledIndexes: ReadonlyArray<number>;
@@ -35,6 +36,7 @@ interface State {
     wordsFound: Array<string>;
     solutionFound: boolean;
     secondsRemaining: number;
+    millisForPuzzle: number;
     score: number;
     endOfLevelModalShowing: boolean;
     puzzleId: string;
@@ -43,12 +45,39 @@ interface State {
 }
 
 export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
-    timeoutId: number = 0;
-    intervalId: number = 0;
+
+    static getDerivedStateFromProps(props: RouterProps, state: State): State {
+        if (props.match.params.puzzleId !== state.puzzleId) {
+            return PuzzleScreenComponent.getFreshState(props.match.params.puzzleId);
+        }
+        return state;
+    }
+
+    static getFreshState(puzzleId: string): State {
+        const puzzle = pickPuzzle(puzzleId);
+        const solution = pickSolutionForPuzzle(puzzle);
+        return {
+            timeoutId: 0,
+            intervalId: 0,
+            activeWord: '',
+            activeLetterOrder: pickShuffledLetters(puzzle),
+            activeLetterOrderDisabledIndexes: [],
+            wordsRemaining: [...puzzle.permutations],
+            wordsFound: buildEmptyValuesArray(puzzle.permutations),
+            solutionFound: false,
+            secondsRemaining: 60,
+            millisForPuzzle: 60 * 1000,
+            score: 0,
+            endOfLevelModalShowing: false,
+            puzzleId,
+            puzzle,
+            solution,
+        };
+    }
 
     constructor(props: RouterProps) {
         super(props);
-        this.state = this.getFreshState(this.props.match.params.puzzleId);
+        this.state = PuzzleScreenComponent.getFreshState(this.props.match.params.puzzleId);
         this.endPuzzle = this.endPuzzle.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
@@ -67,13 +96,6 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
     componentDidUpdate(): void {
         if (this.allWordsFound()) {
             this.endPuzzle();
-        }
-    }
-
-    componentWillReceiveProps(newProps: RouterProps): void {
-        if (this.state.puzzleId !== newProps.match.params.puzzleId) {
-            this.setState(this.getFreshState(newProps.match.params.puzzleId));
-            this.setupNewTimers();
         }
     }
 
@@ -103,43 +125,17 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
         );
     }
 
-    private getFreshState(puzzleId: string): State {
-        const puzzle = pickPuzzle(puzzleId);
-        const solution = pickSolutionForPuzzle(puzzle);
-        return {
-            activeWord: '',
-            activeLetterOrder: pickShuffledLetters(puzzle),
-            activeLetterOrderDisabledIndexes: [],
-            wordsRemaining: [...puzzle.permutations],
-            wordsFound: this.fillWordsFoundWithEmptyValues(puzzle.permutations),
-            solutionFound: false,
-            secondsRemaining: 60,
-            score: 0,
-            endOfLevelModalShowing: false,
-            puzzleId,
-            puzzle,
-            solution,
-        };
-    }
-
     private setupNewTimers(): void {
-        this.timeoutId = setTimeout(this.endPuzzle, millisForPuzzle);
-        this.intervalId = setInterval(this.removeSecondFromTimer, 1000);
+        this.setState({
+            timeoutId: setTimeout(this.endPuzzle, this.state.millisForPuzzle),
+            intervalId: setInterval(this.removeSecondFromTimer, 1000)
+        });
     }
 
     private removeSecondFromTimer(): void {
         this.setState((state: State) => {
             return { secondsRemaining: state.secondsRemaining - 1 };
         });
-    }
-
-    private fillWordsFoundWithEmptyValues(words: ReadonlyArray<string>): Array<string> {
-        return R.map((word: string): string =>
-            this.buildEmptyValueStringOfLength(word.length), words);
-    }
-
-    private buildEmptyValueStringOfLength(length: number): string {
-        return emptyLetterValue.repeat(length);
     }
 
     private renderHUD(): JSX.Element {
@@ -406,8 +402,8 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
     }
 
     private clearTimers(): void {
-        clearInterval(this.intervalId);
-        clearTimeout(this.timeoutId);
+        clearInterval(this.state.intervalId);
+        clearTimeout(this.state.timeoutId);
     }
 
     private clearSecondsRemaining(): void {

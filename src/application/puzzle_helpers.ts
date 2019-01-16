@@ -23,3 +23,11 @@ export const pickShuffledLetters = (puzzle: Puzzle): string => {
 export const pickSolutionForPuzzle = (puzzle: Puzzle): string => (
     puzzle.permutations[0]
 );
+
+// tslint:disable-next-line:readonly-array
+export const buildEmptyValuesArray = (words: ReadonlyArray<string>): Array<string> => {
+    const buildEmptyValueStringOfLength = (length: number): string => {
+        return '*'.repeat(length);
+    };
+    return R.map((word: string): string => buildEmptyValueStringOfLength(word.length), words);
+};
