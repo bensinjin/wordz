@@ -1,7 +1,7 @@
 // tslint:disable:no-expression-statement readonly-keyword readonly-array
 import React from 'react';
 import * as R from 'ramda';
-import { Text, View, TouchableOpacity, Dimensions } from 'react-native';
+import { Text, View, TouchableOpacity, Dimensions, TouchableWithoutFeedback } from 'react-native';
 import Modal from 'react-native-modal';
 import { goToRouteWithoutParameter, Routes, goToRouteWithParameter } from '../../application/routing';
 import { Puzzle } from '../../puzzles/words_abridged_puzzles';
@@ -95,7 +95,7 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
     }
 
     componentDidUpdate(): void {
-        if (this.allWordsFound()) {
+        if (this.allWordsFound() && this.hasTimers()) {
             this.endPuzzle();
         }
     }
@@ -124,13 +124,6 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
                 {this.renderEndOfLevelModal()}
             </View>
         );
-    }
-
-    private setupNewTimers(): void {
-        this.setState({
-            timeoutId: setTimeout(this.endPuzzle, this.state.millisForPuzzle),
-            intervalId: setInterval(this.removeSecondFromTimer, 1000)
-        });
     }
 
     private removeSecondFromTimer(): void {
@@ -222,48 +215,50 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
                 {activeLetterOrderArray.map((letter: string, index: number) =>
                     this.letterShouldBeDisabled(index) ?
-                        this.renderDisabledLetterButton(letter, index)
+                        this.renderLetterButton(
+                            true,
+                            colors.brownBlack,
+                            colors.brownBlack,
+                            colors.brownBlack,
+                            index,
+                            letter,
+                        )
                         :
-                        this.renderEnabledLetterButton(letter, index),
+                        this.renderLetterButton(
+                            false,
+                            colors.black,
+                            colors.brownBlack,
+                            colors.black,
+                            index,
+                            letter,
+                        ),
                 )}
             </View>
         );
     }
 
-    private renderDisabledLetterButton(letter: string, index: number): JSX.Element {
+    // TODO move this into its own component
+    private renderLetterButton(disabled: boolean, borderColor: string, backgroundColor: string, textColor: string, index: number, letter: string):
+        JSX.Element {
         return (
-            <TouchableOpacity
+            <TouchableWithoutFeedback
                 key={index}
-                disabled={true}
-                style={{
-                    borderWidth: borderWidthForBoxes,
-                    borderColor: colors.brownBlack,
-                    backgroundColor: colors.brownBlack,
-                    padding: 12,
-                    marginHorizontal: 6,
-                    borderRadius: borderRadiusForBoxes,
-                }}
-            >
-                <Text style={{ fontSize: activeLetterOrderFontSize, color: colors.brownBlack, fontFamily }}>{letter}</Text>
-            </TouchableOpacity>
-        );
-    }
-
-    private renderEnabledLetterButton(letter: string, index: number): JSX.Element {
-        return (
-            <TouchableOpacity
-                key={index}
-                style={{
-                    borderWidth: borderWidthForBoxes,
-                    borderColor: colors.black,
-                    padding: 12,
-                    marginHorizontal: 6,
-                    borderRadius: borderRadiusForBoxes,
-                }}
+                disabled={disabled}
                 onPress={(): void => this.appendLetterToActiveWord(letter, index)}
             >
-                <Text style={{ fontSize: activeLetterOrderFontSize, color: colors.black, fontFamily }}>{letter}</Text>
-            </TouchableOpacity>
+                <View
+                    style={{
+                        borderColor,
+                        backgroundColor,
+                        borderWidth: borderWidthForBoxes,
+                        padding: 16,
+                        marginHorizontal: 2,
+                        borderRadius: borderRadiusForBoxes,
+                    }}
+                >
+                    <Text style={{ fontSize: activeLetterOrderFontSize, color: textColor, fontFamily }}>{letter}</Text>
+                </View>
+            </TouchableWithoutFeedback>
         );
     }
 
@@ -402,23 +397,26 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
         });
     }
 
+    private setupNewTimers(): void {
+        this.setState({
+            timeoutId: setTimeout(this.endPuzzle, this.state.millisForPuzzle),
+            intervalId: setInterval(this.removeSecondFromTimer, 1000),
+        });
+    }
+
     private clearTimers(): void {
         clearInterval(this.state.intervalId);
         clearTimeout(this.state.timeoutId);
+    }
+
+    private hasTimers(): boolean {
+        return !! (this.state.timeoutId && this.state.intervalId);
     }
 
     private clearSecondsRemaining(): void {
         if (this.state.secondsRemaining !== 0) {
             this.setState({
                 secondsRemaining: 0,
-            });
-        }
-    }
-
-    private showEndOfLevelModal(): void {
-        if (this.state.endOfLevelModalShowing === false) {
-            this.setState({
-                endOfLevelModalShowing: true,
             });
         }
     }
@@ -433,12 +431,21 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
         this.showEndOfLevelModal();
     }
 
+    private showEndOfLevelModal(): void {
+        if (this.state.endOfLevelModalShowing === false) {
+            this.setState({
+                endOfLevelModalShowing: true,
+            });
+        }
+    }
+
     private getEndOfLevelModalOnPress(): void {
         if (this.state.solutionFound) {
             // TODO persist score
         }
         const nextPuzzleId = pickPuzzleId(this.state.puzzleId);
         goToRouteWithParameter(Routes.Puzzle, nextPuzzleId, this.props.history)();
+        this.setupNewTimers();
     }
 
     private renderEndOfLevelModal(): JSX.Element {
