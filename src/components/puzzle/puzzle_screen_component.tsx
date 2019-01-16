@@ -398,9 +398,11 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
     }
 
     private setupNewTimers(): void {
+        const timeoutId = setTimeout(this.endPuzzle, this.state.millisForPuzzle);
+        const intervalId = setInterval(this.removeSecondFromTimer, 1000);
         this.setState({
-            timeoutId: setTimeout(this.endPuzzle, this.state.millisForPuzzle),
-            intervalId: setInterval(this.removeSecondFromTimer, 1000),
+            timeoutId,
+            intervalId,
         });
     }
 
