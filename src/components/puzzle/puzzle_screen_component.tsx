@@ -42,13 +42,13 @@ interface State {
     solution: string;
 }
 
-export class PuzzleScreen extends React.Component<RouterProps, State> {
+export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
     timeoutId: number = 0;
     intervalId: number = 0;
 
     constructor(props: RouterProps) {
         super(props);
-        this.state = this.getFreshState();
+        this.state = this.getFreshState(this.props.match.params.puzzleId);
         this.endPuzzle = this.endPuzzle.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
@@ -65,14 +65,14 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
     }
 
     componentDidUpdate(): void {
-        if (this.state.solutionFound) {
+        if (this.allWordsFound()) {
             this.endPuzzle();
         }
     }
 
     componentWillReceiveProps(newProps: RouterProps): void {
         if (this.state.puzzleId !== newProps.match.params.puzzleId) {
-            this.setState(this.getFreshState());
+            this.setState(this.getFreshState(newProps.match.params.puzzleId));
             this.setupNewTimers();
         }
     }
@@ -103,8 +103,7 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         );
     }
 
-    private getFreshState(): State {
-        const puzzleId = this.props.match.params.puzzleId;
+    private getFreshState(puzzleId: string): State {
         const puzzle = pickPuzzle(puzzleId);
         const solution = pickSolutionForPuzzle(puzzle);
         return {
@@ -148,8 +147,6 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
             <View style={{ alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-evenly' }}>
                 <Text style={{ fontSize: HUDTextSize, fontFamily }}>Time: {this.state.secondsRemaining}</Text>
                 <Text style={{ fontSize: HUDTextSize, fontFamily }}>Score: {this.state.score}</Text>
-                <Text style={{ fontSize: 9, fontFamily }}>sol: {this.state.solution}</Text>
-                <Text style={{ fontSize: 9, fontFamily }}>fnd: {this.state.solutionFound}</Text>
             </View>
         );
     }
@@ -429,7 +426,7 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         }
     }
 
-    private foundAllWords(): boolean {
+    private allWordsFound(): boolean {
         return R.isEmpty(this.state.wordsRemaining);
     }
 
@@ -445,7 +442,6 @@ export class PuzzleScreen extends React.Component<RouterProps, State> {
         }
         const nextPuzzleId = pickPuzzleId(this.state.puzzleId);
         goToRouteWithParameter(Routes.Puzzle, nextPuzzleId, this.props.history)();
-        // goToRouteWithoutParameter(Routes.Main, this.props.history)();
     }
 
     private renderEndOfLevelModal(): JSX.Element {

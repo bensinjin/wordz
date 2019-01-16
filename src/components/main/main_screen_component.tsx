@@ -10,7 +10,7 @@ interface MainScreenProps {
     readonly history: History;
 }
 
-export const MainScreen = (props: MainScreenProps): JSX.Element => (
+export const MainScreenComponent = (props: MainScreenProps): JSX.Element => (
     <View padder style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
         <Text>Welcome</Text>
         <Button
