@@ -141,6 +141,7 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
         );
     }
 
+    // TODO Too long
     private renderWordsFound(): JSX.Element {
         const determineBackgroundColor = (word: string): string => {
             if (word.length === 7) {
