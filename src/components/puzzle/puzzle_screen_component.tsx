@@ -47,6 +47,7 @@ interface State {
 
 export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
 
+    // TODO Can't we do this in component did update? Is that better??
     static getDerivedStateFromProps(props: RouterProps, state: State): State {
         if (props.match.params.puzzleId !== state.puzzleId) {
             return PuzzleScreenComponent.getFreshState(props.match.params.puzzleId);
