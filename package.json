@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@types/ramda": "^0.25.46",
+    "@types/react-redux": "^7.0.1",
     "@types/react-router-native": "^4.2.3",
     "expo": "^31.0.2",
     "global": "^4.3.2",
@@ -21,6 +22,7 @@
     "react": "16.5.0",
     "react-native": "https://github.com/expo/react-native/archive/sdk-31.0.0.tar.gz",
     "react-native-modal": "^7.0.2",
+    "react-redux": "^6.0.0",
     "react-router-native": "^4.3.0",
     "redux": "^4.0.1",
     "redux-saga": "^0.16.2",

@@ -6,7 +6,17 @@ export interface ScoreStore {
     readonly highScore: number;
 }
 
-export const scoreReducer = (store: ScoreStore, action: ScoreAction): ScoreStore => {
+export const buildDefaultScoreStore = (): ScoreStore => (
+    {
+        currentScore: 0,
+        highScore: 0,
+    }
+);
+
+export const scoreReducer = (store: ScoreStore = buildDefaultScoreStore(), action: ScoreAction): ScoreStore => {
+    if (!action) {
+        return store;
+    }
     switch (action.type) {
         case constants.SAVE_HIGH_SCORE: {
             return {

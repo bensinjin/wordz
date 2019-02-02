@@ -45,41 +45,13 @@ interface State {
     solution: string;
 }
 
-export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
+type Props = RouterProps;
 
-    // TODO Can't we do this in component did update? Is that better??
-    static getDerivedStateFromProps(props: RouterProps, state: State): State {
-        if (props.match.params.puzzleId !== state.puzzleId) {
-            return PuzzleScreenComponent.getFreshState(props.match.params.puzzleId);
-        }
-        return state;
-    }
+export class PuzzleScreenComponent extends React.Component<Props, State> {
 
-    static getFreshState(puzzleId: string): State {
-        const puzzle = pickPuzzle(puzzleId);
-        const solution = pickSolutionForPuzzle(puzzle);
-        return {
-            timeoutId: 0,
-            intervalId: 0,
-            activeWord: '',
-            activeLetterOrder: pickShuffledLetters(puzzle),
-            activeLetterOrderDisabledIndexes: [],
-            wordsRemaining: [...puzzle.permutations],
-            wordsFound: buildEmptyValuesArray(puzzle.permutations),
-            solutionFound: false,
-            secondsRemaining: 60,
-            millisForPuzzle: 60 * 1000,
-            score: 0,
-            endOfLevelModalShowing: false,
-            puzzleId,
-            puzzle,
-            solution,
-        };
-    }
-
-    constructor(props: RouterProps) {
+    constructor(props: Props) {
         super(props);
-        this.state = PuzzleScreenComponent.getFreshState(this.props.match.params.puzzleId);
+        this.state = this.getFreshState(this.props.match.params.puzzleId);
         this.endPuzzle = this.endPuzzle.bind(this);
         this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
@@ -95,9 +67,13 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
         this.clearTimers();
     }
 
-    componentDidUpdate(): void {
+    componentDidUpdate(previousProps: Props): void {
         if (this.allWordsFound() && this.hasTimers()) {
             this.endPuzzle();
+        }
+        // TODO Test this, make sure it works as expected
+        if (previousProps.match.params.puzzleId !== this.props.match.params.puzzleId) {
+            this.state = this.getFreshState(this.props.match.params.puzzleId);
         }
     }
 
@@ -125,6 +101,29 @@ export class PuzzleScreenComponent extends React.Component<RouterProps, State> {
                 {this.renderEndOfLevelModal()}
             </View>
         );
+    }
+
+    // TODO this is rather large
+    getFreshState(puzzleId: string): State {
+        const puzzle = pickPuzzle(puzzleId);
+        const solution = pickSolutionForPuzzle(puzzle);
+        return {
+            timeoutId: 0,
+            intervalId: 0,
+            activeWord: '',
+            activeLetterOrder: pickShuffledLetters(puzzle),
+            activeLetterOrderDisabledIndexes: [],
+            wordsRemaining: [...puzzle.permutations],
+            wordsFound: buildEmptyValuesArray(puzzle.permutations),
+            solutionFound: false,
+            secondsRemaining: 60,
+            millisForPuzzle: 60 * 1000,
+            score: 0,
+            endOfLevelModalShowing: false,
+            puzzleId,
+            puzzle,
+            solution,
+        };
     }
 
     private removeSecondFromTimer(): void {
