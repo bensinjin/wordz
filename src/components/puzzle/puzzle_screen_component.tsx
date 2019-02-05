@@ -3,12 +3,13 @@ import React from 'react';
 import * as R from 'ramda';
 import { Text, View, TouchableOpacity, Dimensions, TouchableWithoutFeedback } from 'react-native';
 import Modal from 'react-native-modal';
-import { goToRouteWithoutParameter, Routes, goToRouteWithParameter } from '../../application/routing';
+import { goToRouteWithoutParameter, Routes, RouterProps } from '../../application/routing';
 import { Puzzle } from '../../puzzles/words_abridged_puzzles';
 import { pickPuzzle, pickSolutionForPuzzle, pickShuffledLetters,
          pickPuzzleId, buildEmptyValuesArray, buildEmptyValueStringOfLength } from '../../application/puzzle_helpers';
-import { RouterProps } from '../../application/routing';
 import { fontFamily, colors, appStyles  } from '../../application/styles';
+import { TimerComponent } from '../timer/timer_component';
+import { SaveCurrentScoreAction, SaveHighScoreAction } from '../../stores/score/actions';
 
 // TODO Move these to their appropriate places ...
 const emptyLetterValue = '*';
@@ -27,53 +28,47 @@ enum ActiveWordState {
     Found,
 }
 
+export interface PuzzleScreenProps {
+    readonly currentScore: number;
+    readonly highScore: number;
+}
+
+export interface PuzzleScreenActions {
+    readonly saveCurrentScore: (score: number) => SaveCurrentScoreAction;
+    readonly saveHighScore: (score: number)  => SaveHighScoreAction;
+}
+
 interface State {
-    timeoutId: number;
-    intervalId: number;
     activeWord: string;
     activeLetterOrder: string;
     activeLetterOrderDisabledIndexes: ReadonlyArray<number>;
     wordsRemaining: Array<string>;
     wordsFound: Array<string>;
     solutionFound: boolean;
-    secondsRemaining: number;
-    millisForPuzzle: number;
     score: number;
     endOfLevelModalShowing: boolean;
     puzzleId: string;
     puzzle: Puzzle;
     solution: string;
+    millisecondsRemaining: number;
 }
 
-type Props = RouterProps;
+type Props = PuzzleScreenProps & PuzzleScreenActions & RouterProps;
 
 export class PuzzleScreenComponent extends React.Component<Props, State> {
 
     constructor(props: Props) {
         super(props);
-        this.state = this.getFreshState(this.props.match.params.puzzleId);
+        this.getFreshState();
         this.endPuzzle = this.endPuzzle.bind(this);
-        this.removeSecondFromTimer = this.removeSecondFromTimer.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
         this.submitActiveWord = this.submitActiveWord.bind(this);
         this.getEndOfLevelModalOnPress = this.getEndOfLevelModalOnPress.bind(this);
     }
 
-    componentDidMount(): void {
-        this.setupNewTimers();
-    }
-
-    componentWillUnmount(): void {
-        this.clearTimers();
-    }
-
-    componentDidUpdate(previousProps: Props): void {
-        if (this.allWordsFound() && this.hasTimers()) {
+    componentDidUpdate(): void {
+        if (this.allWordsFound()) {
             this.endPuzzle();
-        }
-        // TODO Test this, make sure it works as expected
-        if (previousProps.match.params.puzzleId !== this.props.match.params.puzzleId) {
-            this.state = this.getFreshState(this.props.match.params.puzzleId);
         }
     }
 
@@ -104,38 +99,40 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
     }
 
     // TODO this is rather large
-    getFreshState(puzzleId: string): State {
+    private getFreshState(): void {
+        const puzzleId = this.state ? pickPuzzleId(this.state.puzzleId) : pickPuzzleId();
         const puzzle = pickPuzzle(puzzleId);
         const solution = pickSolutionForPuzzle(puzzle);
-        return {
-            timeoutId: 0,
-            intervalId: 0,
+        const freshState = {
             activeWord: '',
             activeLetterOrder: pickShuffledLetters(puzzle),
             activeLetterOrderDisabledIndexes: [],
             wordsRemaining: [...puzzle.permutations],
             wordsFound: buildEmptyValuesArray(puzzle.permutations),
             solutionFound: false,
-            secondsRemaining: 60,
-            millisForPuzzle: 60 * 1000,
-            score: 0,
+            score: this.props.currentScore,
             endOfLevelModalShowing: false,
+            millisecondsRemaining: 60000,
             puzzleId,
             puzzle,
             solution,
         };
-    }
-
-    private removeSecondFromTimer(): void {
-        this.setState((state: State) => {
-            return { secondsRemaining: state.secondsRemaining - 1 };
-        });
+        if (this.state) {
+            this.setState(freshState);
+        } else {
+            this.state = freshState;
+        }
     }
 
     private renderHUD(): JSX.Element {
         return (
             <View style={{ alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-evenly' }}>
-                <Text style={{ fontSize: HUDTextSize, fontFamily }}>Time: {this.state.secondsRemaining}</Text>
+                <TimerComponent
+                    milliseconds={this.state.millisecondsRemaining}
+                    timeElapsedCallback={this.endPuzzle}
+                    shouldClearTimers={(): boolean => this.allWordsFound()}
+                    timerId={this.state.puzzleId}
+                />
                 <Text style={{ fontSize: HUDTextSize, fontFamily }}>Score: {this.state.score}</Text>
             </View>
         );
@@ -210,6 +207,7 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
         return wordFound ? ActiveWordState.Found : wordValid ? ActiveWordState.Valid : ActiveWordState.Invalid;
     }
 
+    // TODO move this into its own component
     private renderButtonsForLetters(): JSX.Element {
         const activeLetterOrderArray = this.state.activeLetterOrder.split('');
         return(
@@ -372,7 +370,7 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
                         state.activeWord,
                         ...R.slice(indexToPushTo + 1, Infinity, state.wordsFound),
                     ],
-                    solutionFound: state.activeWord === state.solution,
+                    solutionFound: this.state.solutionFound ? true : state.activeWord === state.solution ? true : false,
                 };
             }
             return state;
@@ -398,57 +396,16 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
         });
     }
 
-    private setupNewTimers(): void {
-        const timeoutId = setTimeout(this.endPuzzle, this.state.millisForPuzzle);
-        const intervalId = setInterval(this.removeSecondFromTimer, 1000);
-        this.setState({
-            timeoutId,
-            intervalId,
-        });
-    }
-
-    private clearTimers(): void {
-        clearInterval(this.state.intervalId);
-        clearTimeout(this.state.timeoutId);
-    }
-
-    private hasTimers(): boolean {
-        return !! (this.state.timeoutId && this.state.intervalId);
-    }
-
-    private clearSecondsRemaining(): void {
-        if (this.state.secondsRemaining !== 0) {
-            this.setState({
-                secondsRemaining: 0,
-            });
-        }
-    }
-
     private allWordsFound(): boolean {
         return R.isEmpty(this.state.wordsRemaining);
     }
 
     private endPuzzle(): void {
-        this.clearTimers();
-        this.clearSecondsRemaining();
-        this.showEndOfLevelModal();
-    }
-
-    private showEndOfLevelModal(): void {
         if (this.state.endOfLevelModalShowing === false) {
             this.setState({
                 endOfLevelModalShowing: true,
             });
         }
-    }
-
-    private getEndOfLevelModalOnPress(): void {
-        if (this.state.solutionFound) {
-            // TODO persist score
-        }
-        const nextPuzzleId = pickPuzzleId(this.state.puzzleId);
-        goToRouteWithParameter(Routes.Puzzle, nextPuzzleId, this.props.history)();
-        this.setupNewTimers();
     }
 
     private renderEndOfLevelModal(): JSX.Element {
@@ -478,5 +435,18 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
                 </View>
             </Modal>
         );
+    }
+
+    private getEndOfLevelModalOnPress(): void {
+        const currentScore = this.props.currentScore + this.state.score;
+        if (currentScore > this.props.highScore) {
+            this.props.saveHighScore(currentScore);
+        }
+        if (this.state.solutionFound) {
+            this.props.saveCurrentScore(currentScore);
+        } else {
+            this.props.saveCurrentScore(0);
+        }
+        this.getFreshState();
     }
 }

@@ -1,7 +1,7 @@
 import { createStore, combineReducers } from 'redux';
 import { scoreReducer, ScoreStore, buildDefaultScoreStore } from './score/reducer';
 
-interface Store {
+export interface Store {
     readonly scores: ScoreStore;
 }
 

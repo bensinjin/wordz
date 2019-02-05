@@ -18,7 +18,7 @@ export const routePath = (route: Routes): string => {
         case Routes.Main:
             return '/';
         case Routes.Puzzle:
-            return '/puzzle/:puzzleId';
+            return '/puzzle';
     }
 };
 

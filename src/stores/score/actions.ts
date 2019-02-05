@@ -3,8 +3,8 @@
 import * as constants from '../store_constants';
 import { makeAction } from '../helpers/make_actions';
 
-type SaveHighScoreAction = Readonly<ReturnType<typeof saveHighScore>>;
-type SaveCurrentScoreAction = Readonly<ReturnType<typeof saveCurrentScore>>;
+export type SaveHighScoreAction = Readonly<ReturnType<typeof saveHighScore>>;
+export type SaveCurrentScoreAction = Readonly<ReturnType<typeof saveCurrentScore>>;
 
 export type ScoreAction = SaveHighScoreAction | SaveCurrentScoreAction;
 
