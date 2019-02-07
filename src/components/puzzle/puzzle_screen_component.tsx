@@ -20,13 +20,7 @@ const borderRadiusForBoxes = 10;
 const wordsFoundFontSize = 20;
 const activeWordFontSize = 30;
 const activeLetterOrderFontSize = 25;
-const HUDTextSize = 25;
-
-enum ActiveWordState {
-    Valid,
-    Invalid,
-    Found,
-}
+const HUDTextSize = 22;
 
 export interface PuzzleScreenProps {
     readonly currentScore: number;
@@ -62,8 +56,9 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
         this.getFreshState();
         this.endPuzzle = this.endPuzzle.bind(this);
         this.clearActiveWord = this.clearActiveWord.bind(this);
+        this.backspaceActiveWord = this.backspaceActiveWord.bind(this);
         this.submitActiveWord = this.submitActiveWord.bind(this);
-        this.getEndOfLevelModalOnPress = this.getEndOfLevelModalOnPress.bind(this);
+        this.finishRound = this.finishRound.bind(this);
     }
 
     componentDidUpdate(): void {
@@ -126,14 +121,17 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
 
     private renderHUD(): JSX.Element {
         return (
-            <View style={{ alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-evenly' }}>
+            <View style={{ alignItems: 'center' }}>
                 <TimerComponent
                     milliseconds={this.state.millisecondsRemaining}
                     timeElapsedCallback={this.endPuzzle}
                     shouldClearTimers={(): boolean => this.allWordsFound()}
                     timerId={this.state.puzzleId}
                 />
-                <Text style={{ fontSize: HUDTextSize, fontFamily }}>Score: {this.state.score}</Text>
+                <View style={{ alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-evenly' }}>
+                    <Text style={{ fontSize: HUDTextSize, fontFamily }}>Score: {this.state.score} </Text>
+                    <Text style={{ fontSize: HUDTextSize, fontFamily }}>High Score: {this.props.highScore}</Text>
+                </View>
             </View>
         );
     }
@@ -201,12 +199,6 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
         );
     }
 
-    private getActiveWordState(): ActiveWordState {
-        const wordFound = R.includes(this.state.activeWord, this.state.wordsFound);
-        const wordValid = R.includes(this.state.activeWord, this.state.puzzle.permutations);
-        return wordFound ? ActiveWordState.Found : wordValid ? ActiveWordState.Valid : ActiveWordState.Invalid;
-    }
-
     // TODO move this into its own component
     private renderButtonsForLetters(): JSX.Element {
         const activeLetterOrderArray = this.state.activeLetterOrder.split('');
@@ -262,41 +254,36 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
     }
 
     private renderHUDButtons(): JSX.Element {
-        // TODO Standardize this
-        const activeWordState = this.getActiveWordState();
-        const submitOrClearButtonText = activeWordState === ActiveWordState.Valid ? 'Submit' : 'Clear';
-        const shouldShowShuffle = R.isEmpty(this.state.activeWord);
-        const exitOrSkipButtonText = this.state.solutionFound ? 'Go next' : 'Exit';
-        const exitOrSkipButtonOnPress = this.state.solutionFound ?
-            this.endPuzzle
-            :
-            goToRouteWithoutParameter(Routes.Main, this.props.history);
-        return (
+        const activeWordIsEmpty = R.isEmpty(this.state.activeWord);
+        const submitClearBackspaceButton = (
             <View style={{ flexDirection: 'row', marginTop: 5 }}>
                 <TouchableOpacity
                     style={[appStyles.button, { marginHorizontal: 5 }]}
                     onPress={(): void => { this.submitActiveWord(); this.clearDisabledIndexes(); }}
                 >
-                    <Text style={appStyles.buttonText}>{submitOrClearButtonText}</Text>
+                    <Text style={appStyles.buttonText}>Submit</Text>
                 </TouchableOpacity>
-                {shouldShowShuffle ?
-                    <TouchableOpacity
-                        style={[appStyles.button, { marginHorizontal: 5 }]}
-                        onPress={(): void => { this.shuffleLetters(); this.clearDisabledIndexes(); }}
-                    >
-                        <Text style={appStyles.buttonText}>Shuffle</Text>
-                    </TouchableOpacity>
-                    :
-                    undefined
-                }
                 <TouchableOpacity
                     style={[appStyles.button, { marginHorizontal: 5 }]}
-                    onPress={exitOrSkipButtonOnPress}
+                    // onPress={(): void => { this.clearActiveWord(); this.clearDisabledIndexes(); }}
+                    onPress={this.backspaceActiveWord}
                 >
-                    <Text style={appStyles.buttonText}>{exitOrSkipButtonText}</Text>
+                    <Text style={appStyles.buttonText}>Backspace</Text>
                 </TouchableOpacity>
             </View>
         );
+        const shuffleButton = (
+            <View style={{ marginTop: 5 }}>
+                <TouchableOpacity
+                    style={[appStyles.button, { marginHorizontal: 5 }]}
+                    onPress={(): void => { this.shuffleLetters(); this.clearDisabledIndexes(); }}
+                >
+                    <Text style={appStyles.buttonText}>Shuffle</Text>
+                </TouchableOpacity>
+            </View>
+        );
+
+        return activeWordIsEmpty ? shuffleButton : submitClearBackspaceButton;
     }
 
     private submitActiveWord(): void {
@@ -331,6 +318,18 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
     private clearActiveWord(): void {
         this.setState({
             activeWord: '',
+        });
+    }
+
+    private backspaceActiveWord(): void {
+        // TODO, Need to track where to "put back" the letter when backspaced.
+        // We can do this by tracking where it was when it was added to the "activeLetterDisabledIndexes" array.
+        // If we store say an object like: { fromIndex: number, value: string }, ie. { disabledIndex: 3, value: 'b' }
+        // we can properly re enable the right value or whaterve ...
+        this.setState({
+            activeWord: this.state.activeWord.substr(0, this.state.activeWord.length - 1),
+            // TODO 
+            // activeLetterOrderDisabledIndexes: R.reject(isRemovedIndex, this.state.activeLetterOrderDisabledIndexes),
         });
     }
 
@@ -429,7 +428,7 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
                     <View style={{ marginBottom: 20 }}>
                         {content}
                     </View>
-                    <TouchableOpacity onPress={this.getEndOfLevelModalOnPress} style={appStyles.button}>
+                    <TouchableOpacity onPress={this.finishRound} style={appStyles.button}>
                         {buttonContent}
                     </TouchableOpacity>
                 </View>
@@ -437,16 +436,18 @@ export class PuzzleScreenComponent extends React.Component<Props, State> {
         );
     }
 
-    private getEndOfLevelModalOnPress(): void {
+    private async finishRound(): Promise<void> {
         const currentScore = this.props.currentScore + this.state.score;
         if (currentScore > this.props.highScore) {
-            this.props.saveHighScore(currentScore);
+            await this.props.saveHighScore(currentScore);
         }
         if (this.state.solutionFound) {
-            this.props.saveCurrentScore(currentScore);
+            await this.props.saveCurrentScore(currentScore);
         } else {
-            this.props.saveCurrentScore(0);
+            await this.props.saveCurrentScore(0);
         }
+
         this.getFreshState();
     }
+
 }
